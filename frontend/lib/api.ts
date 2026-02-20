@@ -2,9 +2,10 @@
  * API client for the backend FastAPI service.
  */
 
-const API_BASE = typeof window !== 'undefined'
-    ? `http://${window.location.hostname}:8000`
-    : 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+    || (typeof window !== 'undefined'
+        ? `http://${window.location.hostname}:8000`
+        : 'http://localhost:8000');
 
 export async function parsePdf(pdfFile: File): Promise<PropertyData | null> {
     const formData = new FormData();
@@ -154,6 +155,11 @@ export async function updateAgentPrompt(
 }
 
 export function getWebSocketUrl(sessionId: string): string {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (apiUrl) {
+        const wsUrl = apiUrl.replace(/^http/, 'ws');
+        return `${wsUrl}/ws/pipeline/${sessionId}`;
+    }
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     return `ws://${host}:8000/ws/pipeline/${sessionId}`;
 }
