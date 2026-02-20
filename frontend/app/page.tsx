@@ -149,13 +149,17 @@ export default function Home() {
 
   const handleStartPipeline = async () => {
     if (!sessionId) return;
-    try {
-      const result = await startPipeline(sessionId);
-      setPipelineResult(result);
-      setStep('results');
-    } catch (e: any) {
-      setError(e.message || 'Chyba při spuštění pipeline');
-    }
+    // Fire-and-forget: let WebSocket drive the UI updates in real-time
+    startPipeline(sessionId)
+      .then((result) => {
+        // Fallback: if WS didn't deliver the result, use HTTP response
+        if (!ws.pipelineResult) {
+          setPipelineResult(result);
+        }
+      })
+      .catch((e: any) => {
+        setError(e.message || 'Chyba při spuštění pipeline');
+      });
   };
 
   const removeFile = (index: number) => {

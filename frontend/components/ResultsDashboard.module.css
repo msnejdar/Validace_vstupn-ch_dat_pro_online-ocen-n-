@@ -508,3 +508,140 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Agent card details ── */
+.ovDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.ovWarnings {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ovWarnLine {
+    font-size: 11px;
+    color: var(--accent-orange);
+    line-height: 1.4;
+}
+
+/* ── Tech data summary ── */
+.techDataSummary {
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 16px;
+}
+
+.techDataTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.techDataGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+.techDataItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.techDataLabel {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.techDataValue {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ── Checks table ── */
+.checksTable {
+    margin-top: 16px;
+}
+
+.checksTable table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.checksTable th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.checksTable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+
+.checkField {
+    font-weight: 600;
+    color: var(--text-primary) !important;
+    text-transform: capitalize;
+}
+
+.checkMatch {
+    background: rgba(5, 150, 105, 0.03);
+}
+
+.checkMismatch {
+    background: rgba(220, 38, 38, 0.04);
+}
+
+.checkYes {
+    color: var(--accent-green);
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.checkNo {
+    color: var(--accent-red);
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.checkNotes {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.checkNote {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}

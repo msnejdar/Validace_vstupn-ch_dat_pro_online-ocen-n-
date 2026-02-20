@@ -93,13 +93,15 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                     </div>
                 </div>
 
-                {/* ── Quick Overview Cards ── */}
+                {/* ── Agent Results Cards ── */}
                 <div className={styles.overviewGrid}>
                     {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator'].map(name => {
                         const agent = agents[name];
                         if (!agent) return null;
                         const meta = AGENT_META[name];
                         const badge = getStatusBadge(agent.result?.status || 'idle');
+                        const details = agent.result?.details || {};
+                        const warnings = agent.result?.warnings || [];
 
                         return (
                             <div key={name} className={`${styles.overviewCard} ${styles[`ov_${agent.result?.status}`]}`}>
@@ -111,6 +113,44 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                                 <p className={styles.ovSummary}>
                                     {agent.result?.summary || '–'}
                                 </p>
+
+                                {/* Key details per agent */}
+                                {name === 'Guardian' && details.classifications && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📸 {Object.keys(details.classifications).length} fotek klasifikováno</span>
+                                        {details.missing_views?.length > 0 && (
+                                            <span style={{ color: 'var(--accent-orange)' }}>Chybí: {details.missing_views.join(', ')}</span>
+                                        )}
+                                    </div>
+                                )}
+                                {name === 'Historian' && details.effective_age != null && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📅 Efektivní věk: {details.effective_age} let</span>
+                                        {agent.result?.category && <span>Kategorie: {agent.result.category}</span>}
+                                    </div>
+                                )}
+                                {name === 'Inspector' && agent.result?.score != null && (
+                                    <div className={styles.ovDetails}>
+                                        <span>⭐ Skóre stavu: {agent.result.score}/100</span>
+                                    </div>
+                                )}
+                                {name === 'GeoValidator' && details.visual_comparison && (
+                                    <div className={styles.ovDetails}>
+                                        <span>🗺️ Shoda panorama: {Math.round(details.visual_comparison.confidence * 100)}%</span>
+                                    </div>
+                                )}
+
+                                {warnings.length > 0 && (
+                                    <div className={styles.ovWarnings}>
+                                        {warnings.slice(0, 2).map((w: string, i: number) => (
+                                            <div key={i} className={styles.ovWarnLine}>⚠️ {w}</div>
+                                        ))}
+                                        {warnings.length > 2 && (
+                                            <div className={styles.ovWarnLine}>+{warnings.length - 2} dalších varování</div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {agent.elapsed_time != null && (
                                     <span className={styles.ovTime}>{agent.elapsed_time.toFixed(1)}s</span>
                                 )}
@@ -236,6 +276,7 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                     const checks = docDetails.checks || [];
                     const recommendations = docDetails.recommendations || [];
                     const overallSummary = docDetails.overall_summary || '';
+                    const propData = docDetails.property_data || {};
 
                     const verdictColor = verdict === 'SHODA'
                         ? '#10b981'
@@ -266,36 +307,105 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                                 </span>
                             </div>
 
+                            {/* Property data summary */}
+                            {Object.keys(propData).length > 0 && (
+                                <div className={styles.techDataSummary}>
+                                    <h4 className={styles.techDataTitle}>📋 Technická data z formuláře</h4>
+                                    <div className={styles.techDataGrid}>
+                                        {propData.year_built && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Rok dokončení</span>
+                                                <span className={styles.techDataValue}>{propData.year_built}</span>
+                                            </div>
+                                        )}
+                                        {propData.floor_count && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Počet podlaží</span>
+                                                <span className={styles.techDataValue}>{propData.floor_count}</span>
+                                            </div>
+                                        )}
+                                        {propData.total_floor_area && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Celk. podl. plocha</span>
+                                                <span className={styles.techDataValue}>{propData.total_floor_area} m²</span>
+                                            </div>
+                                        )}
+                                        {propData.roof_type && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Typ střechy</span>
+                                                <span className={styles.techDataValue}>{propData.roof_type}</span>
+                                            </div>
+                                        )}
+                                        {propData.condition && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Stav</span>
+                                                <span className={styles.techDataValue}>{propData.condition}</span>
+                                            </div>
+                                        )}
+                                        {propData.basement && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Podsklepení</span>
+                                                <span className={styles.techDataValue}>{propData.basement}</span>
+                                            </div>
+                                        )}
+                                        {propData.heating && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Vytápění</span>
+                                                <span className={styles.techDataValue}>{propData.heating}</span>
+                                            </div>
+                                        )}
+                                        {propData.property_address && (
+                                            <div className={styles.techDataItem}>
+                                                <span className={styles.techDataLabel}>Adresa</span>
+                                                <span className={styles.techDataValue}>{propData.property_address}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {overallSummary && (
                                 <div className={styles.comparisonText}>
                                     <p>{overallSummary}</p>
                                 </div>
                             )}
 
+                            {/* Checks table */}
                             {checks.length > 0 && (
-                                <div className={styles.featureGrid}>
-                                    <div className={styles.featureCol}>
-                                        <span className={styles.featureLabel}>✓ Shody</span>
-                                        {checks.filter((c: any) => c.match).map((c: any, i: number) => (
-                                            <span key={i} className={styles.featureTag + ' ' + styles.featureMatch}>
-                                                {c.field}: {c.observed}
-                                            </span>
-                                        ))}
-                                        {checks.filter((c: any) => c.match).length === 0 && (
-                                            <span className={styles.featureTag}>Žádné shody</span>
-                                        )}
-                                    </div>
-                                    <div className={styles.featureCol}>
-                                        <span className={styles.featureLabel}>✗ Neshody</span>
-                                        {checks.filter((c: any) => !c.match).map((c: any, i: number) => (
-                                            <span key={i} className={styles.featureTag + ' ' + styles.featureDiff}>
-                                                {c.field}: deklar. „{c.declared}“ vs. pozorov. „{c.observed}“
-                                            </span>
-                                        ))}
-                                        {checks.filter((c: any) => !c.match).length === 0 && (
-                                            <span className={styles.featureTag}>Žádné neshody ✓</span>
-                                        )}
-                                    </div>
+                                <div className={styles.checksTable}>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Parametr</th>
+                                                <th>Formulář</th>
+                                                <th>Z fotek</th>
+                                                <th>Shoda</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {checks.map((c: any, i: number) => (
+                                                <tr key={i} className={c.match ? styles.checkMatch : styles.checkMismatch}>
+                                                    <td className={styles.checkField}>{c.field}</td>
+                                                    <td>{c.declared || '–'}</td>
+                                                    <td>{c.observed || '–'}</td>
+                                                    <td>
+                                                        <span className={c.match ? styles.checkYes : styles.checkNo}>
+                                                            {c.match ? '✓' : '✗'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {checks.some((c: any) => c.note) && (
+                                        <div className={styles.checkNotes}>
+                                            {checks.filter((c: any) => c.note).map((c: any, i: number) => (
+                                                <div key={i} className={styles.checkNote}>
+                                                    <strong>{c.field}:</strong> {c.note}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
