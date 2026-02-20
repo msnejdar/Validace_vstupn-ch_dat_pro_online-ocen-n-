@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import styles from './ResultsDashboard.module.css';
 import type { PipelineResult } from '@/lib/api';
+import { API_BASE } from '@/lib/api';
 
 interface Props {
     result: PipelineResult;
@@ -170,7 +171,7 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                                         <span className={styles.imgLabel}>Nahrané foto</span>
                                         <div className={styles.imgFrame}>
                                             <img
-                                                src={`http://localhost:8000/uploads/${result.session_id}/${frontPhotoId}.jpg`}
+                                                src={`${API_BASE}/uploads/${result.session_id}/${frontPhotoId}.jpg`}
                                                 alt="Nahrané foto"
                                                 className={styles.comparisonImg}
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -182,7 +183,7 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                                     <span className={styles.imgLabel}>Panorama – Mapy.cz</span>
                                     <div className={styles.imgFrame}>
                                         <img
-                                            src={`http://localhost:8000${panoramaUrl}`}
+                                            src={`${API_BASE}${panoramaUrl}`}
                                             alt="Panorama z Mapy.cz"
                                             className={styles.comparisonImg}
                                         />
