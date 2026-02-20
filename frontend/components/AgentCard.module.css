@@ -1,0 +1,170 @@
+.card {
+    position: absolute;
+    width: 160px;
+    min-height: 100px;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 2;
+    animation: fade-in 0.4s ease;
+}
+
+.card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.14);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.selected {
+    border-color: var(--agent-color) !important;
+    box-shadow: 0 0 16px var(--agent-color-glow) !important;
+}
+
+/* Status styles */
+.status_processing {
+    border-color: var(--accent-blue);
+    animation: pulse-border 2s ease-in-out infinite;
+    background: rgba(30, 111, 217, 0.06);
+}
+
+.status_success {
+    border-color: rgba(5, 150, 105, 0.5);
+    background: rgba(5, 150, 105, 0.04);
+}
+
+.status_fail {
+    border-color: rgba(220, 38, 38, 0.5);
+    background: rgba(220, 38, 38, 0.04);
+}
+
+.status_warn {
+    border-color: rgba(217, 119, 6, 0.5);
+    background: rgba(217, 119, 6, 0.04);
+}
+
+/* Processing ring – animated border */
+.processingRing {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: var(--radius-lg);
+    border: 2px solid transparent;
+    border-top-color: var(--accent-blue-light);
+    border-right-color: rgba(74, 158, 255, 0.3);
+    animation: rotate-ring 1.2s linear infinite;
+    pointer-events: none;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.iconWrap {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+}
+
+.statusIndicator {
+    display: flex;
+    align-items: center;
+}
+
+.spinnerWrap {
+    display: flex;
+    align-items: center;
+    animation: spin 1s linear infinite;
+}
+
+.spinner {
+    display: block;
+}
+
+.cardBody {
+    margin-bottom: 8px;
+}
+
+.agentName {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    letter-spacing: -0.1px;
+}
+
+.agentDesc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.cardFooter {
+    margin-top: 8px;
+}
+
+.processingBar {
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.processingFill {
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-blue-light));
+    border-radius: 2px;
+    animation: processing-sweep 1.5s ease-in-out infinite;
+}
+
+.processingLabel {
+    font-size: 10px;
+    color: var(--accent-blue-light);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.statusLabel {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.logPreview {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.logDot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent-blue-light);
+    flex-shrink: 0;
+    animation: pulse-dot 1s ease-in-out infinite;
+}

@@ -1,0 +1,593 @@
+.main {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* Header */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(11, 22, 40, 0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 32px;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoIcon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-glass);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+}
+
+.logoTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e8ecf4;
+  letter-spacing: -0.2px;
+}
+
+.logoSubtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.stepNum {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stepActive {
+  color: var(--accent-blue);
+}
+
+.stepActive .stepNum {
+  background: var(--accent-blue);
+  color: white;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 12px var(--accent-blue-glow);
+}
+
+.stepDone {
+  color: var(--accent-green);
+}
+
+.stepDone .stepNum {
+  background: var(--accent-green);
+  color: white;
+  border-color: var(--accent-green);
+}
+
+.stepLine {
+  width: 40px;
+  height: 1px;
+  background: var(--border-glass);
+}
+
+/* Upload Section */
+.uploadSection {
+  padding: 48px 32px;
+  animation: fade-in 0.5s ease;
+}
+
+.uploadContainer {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sectionTitle {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.titleGradient {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  color: #e8ecf4;
+  letter-spacing: -0.3px;
+}
+
+.titleSub {
+  display: block;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+/* Drop Zone */
+.dropZone {
+  position: relative;
+  border: 2px dashed var(--border-glass-active);
+  border-radius: var(--radius-xl);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--bg-glass);
+}
+
+.dropZone:hover,
+.dropZoneActive {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.05);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.dropZoneHasFiles {
+  padding: 32px 24px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.dropIcon {
+  margin: 0 auto 16px;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 50%;
+}
+
+.dropText {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.dropHint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* File List */
+.fileList {
+  animation: fade-in 0.3s ease;
+}
+
+.fileListHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  color: var(--accent-red);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.clearBtn:hover {
+  text-decoration: underline;
+}
+
+.fileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.fileItem {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  transition: all 0.2s ease;
+}
+
+.fileItem:hover {
+  border-color: var(--border-glass-active);
+  box-shadow: var(--shadow-sm);
+}
+
+.fileThumb {
+  width: 100%;
+  height: 100px;
+  overflow: hidden;
+}
+
+.fileThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fileInfo {
+  padding: 8px 10px;
+}
+
+.fileName {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileSize {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.fileRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.fileItem:hover .fileRemove {
+  opacity: 1;
+}
+
+/* Property Info */
+.propertyInfo {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.infoTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Error */
+.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--accent-red);
+  font-size: 14px;
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* PDF Section */
+.pdfSection {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  animation: fade-in 0.3s ease;
+}
+
+.pdfSectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdfSectionTitle svg {
+  color: var(--accent-red);
+}
+
+.pdfDropZone {
+  border: 2px dashed var(--border-glass-active);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(239, 68, 68, 0.02);
+}
+
+.pdfDropZone:hover,
+.pdfDropZoneActive {
+  border-color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.06);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+}
+
+.pdfDropIcon {
+  margin: 0 auto 12px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 50%;
+}
+
+.pdfDropText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pdfDropHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pdfFileInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.pdfFileName {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pdfFileIcon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--accent-red);
+}
+
+.pdfRemoveBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.pdfRemoveBtn:hover {
+  color: var(--accent-red);
+}
+
+/* Extracted Data Card */
+.extractedData {
+  margin-top: 16px;
+  padding: 20px;
+  background: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-lg);
+  animation: fade-in 0.3s ease;
+}
+
+.extractedDataTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-green);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.extractedGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.extractedItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--bg-glass);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-glass);
+}
+
+.extractedLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.extractedValue {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.extractedValueMissing {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Toggle Tabs for PDF vs Manual */
+.dataSourceToggle {
+  display: flex;
+  background: var(--bg-glass);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.toggleTab {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.toggleTab:hover {
+  color: var(--text-secondary);
+}
+
+.toggleTabActive {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* Manual Form */
+.manualForm {
+  animation: fade-in 0.3s ease;
+}
+
+.manualFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.manualFormFull {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .inputRow {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadSection {
+    padding: 24px 16px;
+  }
+
+  .extractedGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .manualFormGrid {
+    grid-template-columns: 1fr;
+  }
+}
