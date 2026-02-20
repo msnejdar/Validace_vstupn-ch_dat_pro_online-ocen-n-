@@ -1,0 +1,174 @@
+"""Pipeline Orchestrator – runs agents sequentially with real-time WebSocket updates."""
+import asyncio
+import json
+import time
+import uuid
+from typing import Optional
+
+from fastapi import WebSocket
+
+from agents.base import AgentStatus
+from agents.guardian import GuardianAgent
+from agents.forensic import ForensicAgent
+from agents.historian import HistorianAgent
+from agents.inspector import InspectorAgent
+from agents.geovalidator import GeoValidatorAgent
+from agents.document_comparator import DocumentComparatorAgent
+from agents.strategist import StrategistAgent
+
+
+class PipelineOrchestrator:
+    """Orchestrates the sequential execution of all validation agents."""
+
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.pipeline_id = str(uuid.uuid4())[:8]
+
+        # Initialize agents
+        self.agents = {
+            "Guardian": GuardianAgent(),
+            "Forensic": ForensicAgent(),
+            "Historian": HistorianAgent(),
+            "Inspector": InspectorAgent(),
+            "GeoValidator": GeoValidatorAgent(),
+            "DocumentComparator": DocumentComparatorAgent(),
+            "Strategist": StrategistAgent(),
+        }
+        self.agent_order = ["Guardian", "Forensic", "Historian", "Inspector", "GeoValidator", "DocumentComparator", "Strategist"]
+        self.active_connections: list[WebSocket] = []
+        self.is_running = False
+        self.results = {}
+
+    async def broadcast(self, message: dict):
+        """Broadcast a message to all WebSocket connections."""
+        for ws in self.active_connections:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                pass
+
+    async def _notify_status(self, agent_name: str, status: str, extra: dict = None):
+        """Send agent status update via WebSocket."""
+        msg = {
+            "type": "agent_status",
+            "pipeline_id": self.pipeline_id,
+            "agent": agent_name,
+            "status": status,
+            "timestamp": time.time(),
+        }
+        if extra:
+            msg.update(extra)
+        await self.broadcast(msg)
+
+    async def _notify_log(self, agent_name: str, message: str, level: str = "info"):
+        """Send agent log via WebSocket."""
+        await self.broadcast({
+            "type": "agent_log",
+            "pipeline_id": self.pipeline_id,
+            "agent": agent_name,
+            "message": message,
+            "level": level,
+            "timestamp": time.time(),
+        })
+
+    async def run_pipeline(self, context: dict) -> dict:
+        """Execute the full pipeline sequentially."""
+        self.is_running = True
+        start_time = time.time()
+
+        await self.broadcast({
+            "type": "pipeline_start",
+            "pipeline_id": self.pipeline_id,
+            "session_id": self.session_id,
+            "timestamp": start_time,
+            "agents": self.agent_order,
+        })
+
+        agent_results = {}
+
+        # Run agents 1-5 sequentially (all except Strategist)
+        for agent_name in self.agent_order[:-1]:  # All except Strategist
+            agent = self.agents[agent_name]
+
+            # Update system prompt if customized
+            if context.get("custom_prompts", {}).get(agent_name):
+                agent.system_prompt = context["custom_prompts"][agent_name]
+
+            await self._notify_status(agent_name, "processing")
+            await self._notify_log(agent_name, f"Agent {agent_name} starting...")
+
+            # Pass accumulated results so later agents can use earlier results
+            run_context = {**context, "agent_results": agent_results}
+            result = await agent.execute(run_context)
+            agent_results[agent_name] = result
+
+            # Send logs
+            for log_entry in agent.logs:
+                await self._notify_log(agent_name, log_entry.message, log_entry.level)
+
+            await self._notify_status(
+                agent_name,
+                result.status.value,
+                {"elapsed_time": agent.get_elapsed_time()},
+            )
+
+            self.results[agent_name] = agent.to_dict()
+
+        # Run Agent 5: Strategist with all previous results
+        strategist = self.agents["Strategist"]
+        strategist_context = {**context, "agent_results": agent_results}
+
+        if context.get("custom_prompts", {}).get("Strategist"):
+            strategist.system_prompt = context["custom_prompts"]["Strategist"]
+
+        await self._notify_status("Strategist", "processing")
+        await self._notify_log("Strategist", "Strategist aggregating all results...")
+
+        strategist_result = await strategist.execute(strategist_context)
+        agent_results["Strategist"] = strategist_result
+
+        for log_entry in strategist.logs:
+            await self._notify_log("Strategist", log_entry.message, log_entry.level)
+
+        await self._notify_status(
+            "Strategist",
+            strategist_result.status.value,
+            {"elapsed_time": strategist.get_elapsed_time()},
+        )
+
+        self.results["Strategist"] = strategist.to_dict()
+
+        total_time = round(time.time() - start_time, 2)
+        self.is_running = False
+
+        # Final pipeline result
+        final_result = {
+            "pipeline_id": self.pipeline_id,
+            "session_id": self.session_id,
+            "total_time": total_time,
+            "semaphore": strategist_result.details.get("semaphore", "UNKNOWN"),
+            "semaphore_color": strategist_result.details.get("semaphore_color", "gray"),
+            "final_category": strategist_result.category,
+            "agents": self.results,
+        }
+
+        await self.broadcast({
+            "type": "pipeline_complete",
+            "pipeline_id": self.pipeline_id,
+            "result": final_result,
+            "timestamp": time.time(),
+        })
+
+        return final_result
+
+    def get_state(self) -> dict:
+        """Get current pipeline state for API response."""
+        return {
+            "pipeline_id": self.pipeline_id,
+            "session_id": self.session_id,
+            "is_running": self.is_running,
+            "agents": {
+                name: agent.to_dict()
+                for name, agent in self.agents.items()
+            },
+        }
