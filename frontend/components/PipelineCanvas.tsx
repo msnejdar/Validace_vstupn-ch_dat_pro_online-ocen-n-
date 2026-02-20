@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './PipelineCanvas.module.css';
 import AgentDetail from './AgentDetail';
 import type { UploadResponse } from '@/lib/api';
@@ -67,11 +67,12 @@ const AGENTS_CONFIG = [
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-    idle: 'Čeká',
-    processing: 'Zpracovává se',
-    success: 'Hotovo',
-    fail: 'Chyba',
-    warn: 'Upozornění',
+    idle: 'ČEKÁ',
+    queued: 'VE FRONTĚ',
+    processing: 'ZPRACOVÁVÁ',
+    success: 'HOTOVO',
+    fail: 'CHYBA',
+    warn: 'UPOZORNĚNÍ',
 };
 
 export default function PipelineCanvas({
@@ -85,13 +86,44 @@ export default function PipelineCanvas({
     const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
     const [started, setStarted] = useState(false);
     const [elapsed, setElapsed] = useState(0);
+    const [simulatedIdx, setSimulatedIdx] = useState(-1);
+    const startTimeRef = useRef<number | null>(null);
 
-    // Timer
+    // Timer — starts immediately on click, independent of WebSocket
     useEffect(() => {
-        if (!isRunning) return;
-        const timer = setInterval(() => setElapsed(e => e + 1), 1000);
+        if (!started) return;
+        startTimeRef.current = Date.now();
+        const timer = setInterval(() => {
+            if (startTimeRef.current) {
+                setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+            }
+        }, 100);
         return () => clearInterval(timer);
-    }, [isRunning]);
+    }, [started]);
+
+    // Simulate agent progression if WebSocket isn't delivering statuses
+    useEffect(() => {
+        if (!started) return;
+        // Check if we have any WS statuses at all
+        const hasWsStatuses = Object.values(agentStatuses).some(s => s !== 'idle');
+        if (hasWsStatuses) {
+            setSimulatedIdx(-1); // WS is working, don't simulate
+            return;
+        }
+        // No WS statuses — simulate progression
+        const interval = setInterval(() => {
+            setSimulatedIdx(prev => {
+                if (prev >= AGENTS_CONFIG.length - 1) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 1;
+            });
+        }, 8000); // Estimate ~8s per agent
+        // Start first agent immediately
+        setSimulatedIdx(0);
+        return () => clearInterval(interval);
+    }, [started, agentStatuses]);
 
     const handleStart = () => {
         setStarted(true);
@@ -99,11 +131,28 @@ export default function PipelineCanvas({
         onStart();
     };
 
-    const completedCount = AGENTS_CONFIG.filter(a =>
-        ['success', 'fail', 'warn'].includes(agentStatuses[a.name] || '')
-    ).length;
+    // Merge WS statuses with simulated ones
+    const getEffectiveStatus = (name: string, idx: number): string => {
+        const wsStatus = agentStatuses[name];
+        if (wsStatus && wsStatus !== 'idle') return wsStatus;
+        if (!started) return 'idle';
+        if (simulatedIdx < 0) return wsStatus || 'idle'; // WS is active
+        // Simulated
+        if (idx < simulatedIdx) return 'success';
+        if (idx === simulatedIdx) return 'processing';
+        return 'queued';
+    };
 
-    const processingAgent = AGENTS_CONFIG.find(a => agentStatuses[a.name] === 'processing');
+    const completedCount = AGENTS_CONFIG.filter((a, i) => {
+        const s = getEffectiveStatus(a.name, i);
+        return ['success', 'fail', 'warn'].includes(s);
+    }).length;
+
+    const processingAgent = AGENTS_CONFIG.find((a, i) =>
+        getEffectiveStatus(a.name, i) === 'processing'
+    );
+
+    const allDone = completedCount >= AGENTS_CONFIG.length;
 
     const formatTime = (s: number) => {
         const m = Math.floor(s / 60);
@@ -136,10 +185,15 @@ export default function PipelineCanvas({
                                 Spustit analýzu
                             </button>
                         )}
-                        {isRunning && (
+                        {started && !allDone && (
                             <div className={styles.runningBadge}>
                                 <span className={styles.runningDot} />
                                 Analýza probíhá...
+                            </div>
+                        )}
+                        {started && allDone && (
+                            <div className={styles.runningBadge} style={{ borderColor: 'rgba(5,150,105,0.4)', color: 'var(--accent-green)', background: 'rgba(5,150,105,0.08)' }}>
+                                ✓ Dokončeno
                             </div>
                         )}
                     </div>
@@ -169,15 +223,21 @@ export default function PipelineCanvas({
                             <span style={{ color: processingAgent.color }}>{processingAgent.icon}</span>
                             {' '}{processingAgent.label} – {processingAgent.description}
                         </span>
+                        <span className={styles.currentDots}>
+                            <span className={styles.dot1}>.</span>
+                            <span className={styles.dot2}>.</span>
+                            <span className={styles.dot3}>.</span>
+                        </span>
                     </div>
                 )}
 
                 {/* Agents Grid */}
                 <div className={styles.agentsGrid}>
                     {AGENTS_CONFIG.map((agent, idx) => {
-                        const status = agentStatuses[agent.name] || 'idle';
+                        const status = getEffectiveStatus(agent.name, idx);
                         const isProcessing = status === 'processing';
                         const isDone = ['success', 'fail', 'warn'].includes(status);
+                        const isQueued = status === 'queued';
                         const lastLog = (agentLogs[agent.name] || []).slice(-1)[0];
 
                         return (
@@ -190,37 +250,41 @@ export default function PipelineCanvas({
                                     '--agent-color': agent.color,
                                 } as React.CSSProperties}
                             >
-                                {/* Order number */}
+                                {/* Order number / status icon */}
                                 <div className={styles.rowOrder}>
                                     {isDone ? (
                                         status === 'success' ? (
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M3 8.5L6.5 12L13 4" stroke="var(--accent-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                                <circle cx="10" cy="10" r="9" fill="rgba(5,150,105,0.15)" />
+                                                <path d="M6 10.5L8.5 13L14 7" stroke="var(--accent-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         ) : status === 'fail' ? (
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M4 4L12 12M12 4L4 12" stroke="var(--accent-red)" strokeWidth="2" strokeLinecap="round" />
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                                <circle cx="10" cy="10" r="9" fill="rgba(220,38,38,0.15)" />
+                                                <path d="M7 7L13 13M13 7L7 13" stroke="var(--accent-red)" strokeWidth="2" strokeLinecap="round" />
                                             </svg>
                                         ) : (
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M8 4V9M8 11.5V12" stroke="var(--accent-orange)" strokeWidth="2" strokeLinecap="round" />
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                                <circle cx="10" cy="10" r="9" fill="rgba(217,119,6,0.15)" />
+                                                <path d="M10 6V11M10 13.5V14" stroke="var(--accent-orange)" strokeWidth="2" strokeLinecap="round" />
                                             </svg>
                                         )
                                     ) : isProcessing ? (
                                         <div className={styles.rowSpinner}>
-                                            <svg viewBox="0 0 18 18" width="16" height="16">
-                                                <circle cx="9" cy="9" r="7" stroke="rgba(255,255,255,0.1)" strokeWidth="2" fill="none" />
-                                                <circle cx="9" cy="9" r="7" stroke={agent.color} strokeWidth="2" fill="none"
-                                                    strokeDasharray="22 22" strokeLinecap="round" />
+                                            <svg viewBox="0 0 20 20" width="20" height="20">
+                                                <circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.08)" strokeWidth="2" fill="none" />
+                                                <circle cx="10" cy="10" r="8" stroke={agent.color} strokeWidth="2" fill="none"
+                                                    strokeDasharray="25 26" strokeLinecap="round" />
                                             </svg>
                                         </div>
                                     ) : (
-                                        <span className={styles.rowNum}>{idx + 1}</span>
+                                        <span className={`${styles.rowNum} ${isQueued ? styles.rowNumQueued : ''}`}>{idx + 1}</span>
                                     )}
                                 </div>
 
                                 {/* Icon */}
-                                <div className={styles.rowIcon} style={{ background: `${agent.color}15`, color: agent.color }}>
+                                <div className={`${styles.rowIcon} ${isProcessing ? styles.rowIconPulse : ''}`}
+                                    style={{ background: `${agent.color}${isProcessing ? '25' : '15'}`, color: agent.color }}>
                                     {agent.icon}
                                 </div>
 
@@ -228,7 +292,9 @@ export default function PipelineCanvas({
                                 <div className={styles.rowInfo}>
                                     <div className={styles.rowName}>{agent.label}</div>
                                     <div className={styles.rowDesc}>
-                                        {isProcessing && lastLog ? lastLog.message?.substring(0, 60) : agent.description}
+                                        {isProcessing && lastLog ? lastLog.message?.substring(0, 60)
+                                            : isProcessing ? 'Analyzuji...'
+                                                : agent.description}
                                     </div>
                                 </div>
 
@@ -237,7 +303,7 @@ export default function PipelineCanvas({
                                     {STATUS_LABELS[status] || status}
                                 </div>
 
-                                {/* Processing bar */}
+                                {/* Processing bar at bottom */}
                                 {isProcessing && (
                                     <div className={styles.rowProgressBar}>
                                         <div className={styles.rowProgressFill} style={{ background: agent.color }} />

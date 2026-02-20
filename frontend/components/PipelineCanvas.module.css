@@ -293,6 +293,81 @@
     animation: processing-sweep 1.5s ease-in-out infinite;
 }
 
+/* ── Queued state ── */
+.row_queued {
+    opacity: 0.5;
+}
+
+.status_queued {
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.rowNumQueued {
+    opacity: 0.4;
+}
+
+/* ── Pulsing icon ── */
+.rowIconPulse {
+    animation: icon-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* ── Animated dots ── */
+.currentDots {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.dot1,
+.dot2,
+.dot3 {
+    animation: dot-blink 1.4s infinite;
+    opacity: 0;
+}
+
+.dot1 {
+    animation-delay: 0s;
+}
+
+.dot2 {
+    animation-delay: 0.2s;
+}
+
+.dot3 {
+    animation-delay: 0.4s;
+}
+
+@keyframes dot-blink {
+
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
 /* ── Mobile ── */
 @media (max-width: 640px) {
     .section {
@@ -311,6 +386,10 @@
     }
 
     .rowDesc {
+        display: none;
+    }
+
+    .currentDots {
         display: none;
     }
 }
