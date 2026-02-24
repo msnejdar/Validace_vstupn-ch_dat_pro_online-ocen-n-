@@ -7,6 +7,7 @@ import { API_BASE } from '@/lib/api';
 interface Props {
     result: PipelineResult;
     onReset: () => void;
+    onEdit: () => void;
 }
 
 const AGENT_META: Record<string, { icon: string; label: string; color: string }> = {
@@ -19,7 +20,7 @@ const AGENT_META: Record<string, { icon: string; label: string; color: string }>
     Strategist: { icon: '🎯', label: 'Závěrečné hodnocení', color: '#10b981' },
 };
 
-export default function ResultsDashboard({ result, onReset }: Props) {
+export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
     const [showDetails, setShowDetails] = useState(false);
 
     const semaphore = result.semaphore || 'UNKNOWN';
@@ -485,8 +486,17 @@ export default function ResultsDashboard({ result, onReset }: Props) {
                     </div>
                 )}
 
-                {/* ── Action ── */}
                 <div className={styles.actions}>
+                    <button
+                        className="btn"
+                        onClick={onEdit}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M10 2L13 5L5 13H2V10L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Upravit a spustit znovu
+                    </button>
                     <button className="btn btn-primary" onClick={onReset}>
                         Nová analýza
                     </button>

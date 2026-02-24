@@ -11,6 +11,7 @@ interface Props {
     agentLogs: Record<string, WSMessage[]>;
     isRunning: boolean;
     onStart: () => void;
+    onEdit: () => void;
     uploadData: UploadResponse | null;
 }
 
@@ -81,6 +82,7 @@ export default function PipelineCanvas({
     agentLogs,
     isRunning,
     onStart,
+    onEdit,
     uploadData,
 }: Props) {
     const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -178,12 +180,24 @@ export default function PipelineCanvas({
                             </div>
                         )}
                         {!started && (
-                            <button className="btn btn-primary" onClick={handleStart}>
-                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                                    <path d="M4 2.5L15 9L4 15.5V2.5Z" fill="currentColor" />
-                                </svg>
-                                Spustit analýzu
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    className="btn"
+                                    onClick={onEdit}
+                                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M10 2L13 5L5 13H2V10L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    Upravit vstup
+                                </button>
+                                <button className="btn btn-primary" onClick={handleStart}>
+                                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                        <path d="M4 2.5L15 9L4 15.5V2.5Z" fill="currentColor" />
+                                    </svg>
+                                    Spustit analýzu
+                                </button>
+                            </div>
                         )}
                         {started && !allDone && (
                             <div className={styles.runningBadge}>

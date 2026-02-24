@@ -52,6 +52,26 @@ PRAVIDLA:
 - Odpovídej POUZE v JSON.
 """
 
+FRONT_PHOTO_SELECTION_PROMPT = """Jsi expert na klasifikaci fotografií nemovitostí.
+
+TVŮJ ÚKOL: Ze sady fotografií vyber tu jednu, která NEJLÉPE ukazuje PŘEDNÍ FASÁDU / POHLED Z ULICE na rodinný dům.
+
+PRAVIDLA:
+- VŽDY vyber fotografii exteriéru domu – pohled zvenku na budovu.
+- Ideálně přední fasádu (vstupní dveře, přední stěna domu viditelná z ulice).
+- Pokud přední fasáda není k dispozici, vyber boční nebo zadní exteriér.
+- NIKDY nevyber interiérovou fotku (kuchyň, obývák, ložnice, koupelna, chodba).
+- NIKDY nevyber detail (zblízka okno, střecha, zeď) – musí být vidět celý dům nebo jeho podstatná část.
+- NIKDY nevyber fotku pozemku/zahrady bez viditelného domu.
+- Pokud ŽÁDNÁ fotka neukazuje exteriér domu, vrať "photo_id": null.
+
+Vrať POUZE JSON:
+{
+  "photo_id": "ID vybrané fotky nebo null",
+  "reason": "Krátké zdůvodnění výběru"
+}
+"""
+
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate distance in meters between two GPS points."""
@@ -228,19 +248,15 @@ class GeoValidatorAgent(BaseAgent):
         front_photo_id = None
         front_photo_path = None
 
-        # Pick the street-facing photo from Guardian classifications
-        front_photo_path, front_photo_id = self._find_front_photo(
+        # Pick the best street-facing photo using AI
+        front_photo_path, front_photo_id = await self._find_front_photo(
             guardian_classifications, images,
         )
 
         if front_photo_path:
             self.log(f"Přední/uliční foto nalezena: {front_photo_id}", "info")
         else:
-            # Fallback: use first image
-            if images:
-                front_photo_path = images[0].get("processed_path")
-                front_photo_id = images[0].get("id")
-                self.log("Přední foto nenalezena, používám první fotku.", "warn")
+            self.log("Žádná exteriérová fotka domu nebyla nalezena – vizuální porovnání není možné.", "warn")
 
         # Fetch panorama from Mapy.cz
         if property_lat is not None and property_lon is not None:
@@ -335,8 +351,15 @@ class GeoValidatorAgent(BaseAgent):
         )
 
     # ─── Find the front/street-facing photo ────────────────────────────
-    def _find_front_photo(self, classifications: list, images: list) -> tuple:
-        """Find the photo classified as EXTERIER_PREDNI by Guardian."""
+    async def _find_front_photo(self, classifications: list, images: list) -> tuple:
+        """Find the best street-facing exterior photo.
+
+        Strategy (two-tiered for reliability):
+        1. Try Guardian's classifications (EXTERIER_PREDNI > EXTERIER_BOCNI > EXTERIER_ZADNI)
+        2. If Guardian didn't find one, use a dedicated Gemini call to pick the best exterior photo
+           from ALL images — this guarantees we never accidentally pick an interior shot.
+        """
+        # ── Tier 1: Guardian classifications ──
         target_categories = ["EXTERIER_PREDNI", "EXTERIER_BOCNI", "EXTERIER_ZADNI"]
 
         for cat in target_categories:
@@ -346,8 +369,53 @@ class GeoValidatorAgent(BaseAgent):
                     pid = cl.get("photo_id")
                     for img in images:
                         if img.get("id") == pid:
+                            self.log(f"Guardian klasifikace: {pid} → {cat}")
                             return img.get("processed_path"), pid
-        return None, None
+
+        # ── Tier 2: Dedicated AI selection ──
+        # Guardian didn't identify a front photo or hasn't run — use AI to pick
+        self.log("Guardian nemá vhodnou klasifikaci, vybírám přední foto pomocí AI...", "thinking")
+        if not self.client or not images:
+            return None, None
+
+        try:
+            parts = [f"Máš {len(images)} fotografií. Vyber tu, která nejlépe ukazuje PŘEDNÍ EXTERIÉR rodinného domu (pohled z ulice).\n\n"]
+
+            for img in images:
+                try:
+                    with open(img["processed_path"], "rb") as f:
+                        image_bytes = f.read()
+                    parts.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
+                    parts.append(f"Photo ID: {img['id']}\n")
+                except Exception:
+                    continue
+
+            response = await self.client.aio.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    system_instruction=FRONT_PHOTO_SELECTION_PROMPT,
+                    response_mime_type="application/json",
+                    max_output_tokens=300,
+                ),
+            )
+
+            result = json.loads(response.text)
+            selected_id = result.get("photo_id")
+            reason = result.get("reason", "")
+
+            if selected_id:
+                self.log(f"AI vybrala foto: {selected_id} – {reason}")
+                for img in images:
+                    if img.get("id") == selected_id:
+                        return img.get("processed_path"), selected_id
+
+            self.log("AI nenašla vhodnou exteriérovou fotku.", "warn")
+            return None, None
+
+        except Exception as e:
+            self.log(f"Chyba AI výběru fotky: {e}", "warn")
+            return None, None
 
     # ─── Visual comparison via Gemini ──────────────────────────────────
     async def _compare_visually(

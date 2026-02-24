@@ -141,7 +141,21 @@ class DocumentComparatorAgent(BaseAgent):
             recommendations = ai_result.get("recommendations", [])
             overall_summary = ai_result.get("overall_summary", "")
 
-            # Determine status based on verdict
+            # Count matches/mismatches from actual check data
+            matches = sum(1 for c in checks if c.get("match", False))
+            mismatches = len(checks) - matches
+
+            # Override AI verdict with actual check results to prevent inconsistency
+            # (AI sometimes says ČÁSTEČNÁ_SHODA while all checks show match=True)
+            if checks:
+                if mismatches == 0:
+                    verdict = "SHODA"
+                elif matches == 0:
+                    verdict = "NESHODA"
+                else:
+                    verdict = "ČÁSTEČNÁ_SHODA"
+
+            # Determine status based on (corrected) verdict
             if verdict == "SHODA":
                 status = AgentStatus.SUCCESS
             elif verdict == "ČÁSTEČNÁ_SHODA":
@@ -150,10 +164,6 @@ class DocumentComparatorAgent(BaseAgent):
                 status = AgentStatus.FAIL
 
             self.log(f"Výsledek: {verdict} (confidence: {confidence})")
-
-            # Count matches/mismatches
-            matches = sum(1 for c in checks if c.get("match", False))
-            mismatches = len(checks) - matches
 
             return AgentResult(
                 status=status,

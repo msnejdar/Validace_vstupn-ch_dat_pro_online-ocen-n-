@@ -166,6 +166,15 @@ export default function Home() {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleEdit = () => {
+    // Go back to upload step, keep files and property data
+    setStep('upload');
+    setSessionId(null);
+    setUploadData(null);
+    setPipelineResult(null);
+    setError(null);
+  };
+
   // Use WS pipeline result when available
   const finalResult = ws.pipelineResult || pipelineResult;
 
@@ -510,6 +519,7 @@ export default function Home() {
           agentLogs={ws.agentLogs}
           isRunning={ws.isRunning}
           onStart={handleStartPipeline}
+          onEdit={handleEdit}
           uploadData={uploadData}
         />
       )}
@@ -518,6 +528,7 @@ export default function Home() {
       {step === 'results' && finalResult && (
         <ResultsDashboard
           result={finalResult}
+          onEdit={handleEdit}
           onReset={() => {
             setStep('upload');
             setFiles([]);
