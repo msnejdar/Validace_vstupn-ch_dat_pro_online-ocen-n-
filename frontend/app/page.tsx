@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
 import styles from './page.module.css';
-import { uploadFiles, startPipeline, parsePdf, type UploadResponse, type PipelineResult, type PropertyData } from '@/lib/api';
+import { uploadFiles, startPipeline, parsePdf, parseLv, type UploadResponse, type PipelineResult, type PropertyData, type LVData } from '@/lib/api';
 import PipelineCanvas from '@/components/PipelineCanvas';
 import ResultsDashboard from '@/components/ResultsDashboard';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -59,6 +59,13 @@ export default function Home() {
   // Manual form state
   const [manualData, setManualData] = useState<PropertyData>({ ...EMPTY_PROPERTY_DATA });
 
+  // LV (List Vlastnictví) state
+  const [lvFile, setLvFile] = useState<File | null>(null);
+  const [lvData, setLvData] = useState<LVData | null>(null);
+  const [lvParsing, setLvParsing] = useState(false);
+  const [selectedParcels, setSelectedParcels] = useState<string[]>([]);
+  const lvInputRef = useRef<HTMLInputElement>(null);
+
   const ws = useWebSocket(sessionId);
 
   const handleFiles = useCallback((newFiles: FileList | File[]) => {
@@ -114,6 +121,38 @@ export default function Home() {
     setExtractedData(prev => prev ? { ...prev, [field]: value || null } : prev);
   };
 
+  const processLv = useCallback(async (file: File) => {
+    setLvFile(file);
+    setLvParsing(true);
+    try {
+      const data = await parseLv(file);
+      if (data) {
+        setLvData(data);
+        // All parcels selected by default
+        setSelectedParcels(data.parcels.map(p => p.parcel_number));
+      }
+    } catch {
+      setError('Chyba při zpracování LV.');
+    } finally {
+      setLvParsing(false);
+    }
+  }, []);
+
+  const handleLvSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.name.toLowerCase().endsWith('.pdf')) {
+      processLv(file);
+    }
+  }, [processLv]);
+
+  const toggleParcel = (parcelNumber: string) => {
+    setSelectedParcels(prev =>
+      prev.includes(parcelNumber)
+        ? prev.filter(p => p !== parcelNumber)
+        : [...prev, parcelNumber]
+    );
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       setError('Nahrajte alespoň jednu fotografii.');
@@ -143,6 +182,8 @@ export default function Home() {
         addressVal,
         effectivePdf,
         finalPropertyData,
+        lvFile || undefined,
+        selectedParcels.length > 0 ? selectedParcels : undefined,
       );
       setUploadData(result);
       setSessionId(result.session_id);
@@ -551,6 +592,125 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {/* ── LV (List Vlastnictví) Upload ── */}
+              <div className={styles.pdfSection}>
+                <div className={styles.sectionLabel}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 3H12V12H2V3Z" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M4 1V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M10 1V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M4 7H10M4 10H7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                  List vlastnictví (PDF) — volitelné
+                </div>
+
+                {!lvFile ? (
+                  <div
+                    className={styles.pdfDropzone}
+                    onClick={() => lvInputRef.current?.click()}
+                  >
+                    <input
+                      ref={lvInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleLvSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                      <path d="M14 4V18M8 12L14 18L20 12" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <span>Klikněte nebo přetáhněte PDF s Listem vlastnictví</span>
+                  </div>
+                ) : (
+                  <div className={styles.pdfFileDisplay}>
+                    <div className={styles.pdfFileName}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M11.5 4L5.5 10L2.5 7" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {lvFile.name}
+                      <button
+                        className={styles.pdfRemove}
+                        onClick={() => { setLvFile(null); setLvData(null); setSelectedParcels([]); }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {lvParsing && <span className={styles.spinner} />}
+                  </div>
+                )}
+
+                {/* LV Parsed Data — Parcel Checkboxes */}
+                {lvData && (
+                  <div className={styles.extractedData} style={{ marginTop: '12px' }}>
+                    <div className={styles.extractedDataTitle}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M11.5 4L5.5 10L2.5 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      LV {lvData.lv_number} — k.ú. {lvData.kat_uzemi_nazev} ({lvData.kat_uzemi_kod})
+                    </div>
+
+                    {lvData.owners.length > 0 && (
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', padding: '0 4px' }}>
+                        {lvData.owners.map((o, i) => (
+                          <span key={i}>{o.name} ({o.share}){i < lvData.owners.length - 1 ? ', ' : ''}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '10px', padding: '0 4px' }}>
+                      <strong>Funkční celek — vyberte parcely pro validaci:</strong>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {lvData.parcels.map(p => (
+                        <label
+                          key={p.parcel_number}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            background: selectedParcels.includes(p.parcel_number)
+                              ? 'rgba(99,102,241,0.08)'
+                              : 'rgba(255,255,255,0.02)',
+                            border: selectedParcels.includes(p.parcel_number)
+                              ? '1px solid rgba(99,102,241,0.3)'
+                              : '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedParcels.includes(p.parcel_number)}
+                            onChange={() => toggleParcel(p.parcel_number)}
+                            style={{ accentColor: '#6366f1' }}
+                          />
+                          <span style={{ fontWeight: 600, minWidth: '65px' }}>p.č. {p.parcel_number}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>{p.area_m2} m²</span>
+                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{p.land_type}</span>
+                          {p.land_use && <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px' }}>({p.land_use})</span>}
+                        </label>
+                      ))}
+                    </div>
+
+                    {lvData.buildings.length > 0 && (
+                      <div style={{ marginTop: '10px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', padding: '0 4px' }}>
+                        <strong>Stavby:</strong> {lvData.buildings.map(b => b.part_of).join('; ')}
+                      </div>
+                    )}
+
+                    {lvData.encumbrances.length > 0 && (
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#f59e0b', padding: '0 4px' }}>
+                        ⚠ {lvData.encumbrances.length} záznam(ů) v sekci C (zástavní práva, věcná břemena, ...)
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {error && <div className={styles.error}>{error}</div>}

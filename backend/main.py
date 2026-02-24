@@ -12,6 +12,7 @@ from config import UPLOAD_DIR, SUPPORTED_EXTENSIONS
 from preprocessor import ImagePreprocessor
 from orchestrator import PipelineOrchestrator
 from pdf_parser import parse_pdf
+from lv_parser import parse_lv
 
 app = FastAPI(
     title="AI Validation Pipeline – Rodinné Domy",
@@ -52,6 +53,20 @@ async def parse_pdf_endpoint(pdf_file: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail=f"Nepodařilo se zpracovat PDF: {str(e)}")
 
 
+@app.post("/api/parse-lv")
+async def parse_lv_endpoint(lv_file: UploadFile = File(...)):
+    """Parse a List Vlastnictví PDF and return extracted data instantly."""
+    if not lv_file.filename or not lv_file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Soubor musí být ve formátu PDF.")
+
+    lv_bytes = await lv_file.read()
+    try:
+        parsed = parse_lv(lv_bytes)
+        return {"lv_data": parsed.to_dict() if not parsed.is_empty() else None}
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Nepodařilo se zpracovat LV: {str(e)}")
+
+
 @app.post("/api/upload")
 async def upload_files(
     files: list[UploadFile] = File(...),
@@ -59,9 +74,11 @@ async def upload_files(
     year_reconstructed: Optional[int] = Form(None),
     property_address: Optional[str] = Form(None),
     pdf_file: Optional[UploadFile] = File(None),
+    lv_pdf_file: Optional[UploadFile] = File(None),
     property_data_json: Optional[str] = Form(None),
+    selected_parcels_json: Optional[str] = Form(None),
 ):
-    """Upload and preprocess images, optionally with a PDF form or manual property data."""
+    """Upload and preprocess images, optionally with PDF forms and LV."""
     session_id = str(uuid.uuid4())[:8]
 
     # === Handle PDF file ===
@@ -86,6 +103,33 @@ async def upload_files(
     if not property_data and property_data_json:
         try:
             property_data = json.loads(property_data_json)
+        except json.JSONDecodeError:
+            pass
+
+    # === Handle LV PDF ===
+    lv_pdf_path = None
+    lv_data_preview = None
+    if lv_pdf_file and lv_pdf_file.filename:
+        ext = os.path.splitext(lv_pdf_file.filename)[1].lower()
+        if ext == ".pdf":
+            lv_bytes = await lv_pdf_file.read()
+            session_dir = os.path.join(UPLOAD_DIR, session_id)
+            os.makedirs(session_dir, exist_ok=True)
+            lv_pdf_path = os.path.join(session_dir, "lv.pdf")
+            with open(lv_pdf_path, "wb") as f:
+                f.write(lv_bytes)
+            # Parse LV for preview
+            try:
+                lv_parsed = parse_lv(lv_bytes)
+                lv_data_preview = lv_parsed.to_dict()
+            except Exception:
+                pass
+
+    # Parse selected parcels
+    selected_parcels = None
+    if selected_parcels_json:
+        try:
+            selected_parcels = json.loads(selected_parcels_json)
         except json.JSONDecodeError:
             pass
 
@@ -128,6 +172,8 @@ async def upload_files(
         "property_address": effective_address,
         "property_data": property_data,
         "processed_paths": [img.processed_path for img in processed],
+        "lv_pdf_path": lv_pdf_path,
+        "selected_parcels": selected_parcels,
     }
 
     return {
@@ -136,6 +182,7 @@ async def upload_files(
         "files_processed": len(processed),
         "images": [img.to_dict() for img in processed],
         "property_data": property_data,
+        "lv_data": lv_data_preview,
     }
 
 
@@ -162,6 +209,8 @@ async def start_pipeline(
         "year_reconstructed": session.get("year_reconstructed"),
         "property_address": session.get("property_address", ""),
         "property_data": session.get("property_data"),
+        "lv_pdf_path": session.get("lv_pdf_path"),
+        "selected_parcels": session.get("selected_parcels"),
         "custom_prompts": custom_prompts or {},
     }
 

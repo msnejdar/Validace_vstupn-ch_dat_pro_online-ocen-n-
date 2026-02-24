@@ -11,6 +11,9 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 # Mapy.cz
 MAPY_CZ_API_KEY = os.getenv("MAPY_CZ_API_KEY", "")
 
+# ČÚZK Katastr nemovitostí REST API
+CUZK_API_KEY = os.getenv("CUZK_API_KEY", "")
+
 # Image Processing
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".bmp"}

@@ -17,6 +17,7 @@ const AGENT_META: Record<string, { icon: string; label: string; color: string }>
     Inspector: { icon: '🔍', label: 'Technický stav', color: '#f59e0b' },
     GeoValidator: { icon: '📍', label: 'Ověření lokace', color: '#ec4899' },
     DocumentComparator: { icon: '📄', label: 'PDF vs Fotky', color: '#f97316' },
+    CadastralAnalyst: { icon: '🏛️', label: 'Katastr & LV', color: '#7c3aed' },
     Strategist: { icon: '🎯', label: 'Závěrečné hodnocení', color: '#10b981' },
 };
 

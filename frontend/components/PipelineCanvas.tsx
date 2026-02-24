@@ -59,6 +59,13 @@ const AGENTS_CONFIG = [
         color: '#ea580c',
     },
     {
+        name: 'CadastralAnalyst',
+        label: 'KatastrAnalýza',
+        description: 'Analýza LV – rizika, ortofoto, stavby',
+        icon: '🏛️',
+        color: '#7c3aed',
+    },
+    {
         name: 'Strategist',
         label: 'Strategist',
         description: 'Agregace výsledků a finální verdikt',

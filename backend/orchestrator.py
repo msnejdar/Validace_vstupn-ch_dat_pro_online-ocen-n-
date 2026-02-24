@@ -14,6 +14,7 @@ from agents.historian import HistorianAgent
 from agents.inspector import InspectorAgent
 from agents.geovalidator import GeoValidatorAgent
 from agents.document_comparator import DocumentComparatorAgent
+from agents.cadastral_analyst import CadastralAnalystAgent
 from agents.strategist import StrategistAgent
 
 
@@ -32,9 +33,10 @@ class PipelineOrchestrator:
             "Inspector": InspectorAgent(),
             "GeoValidator": GeoValidatorAgent(),
             "DocumentComparator": DocumentComparatorAgent(),
+            "CadastralAnalyst": CadastralAnalystAgent(),
             "Strategist": StrategistAgent(),
         }
-        self.agent_order = ["Guardian", "Forensic", "Historian", "Inspector", "GeoValidator", "DocumentComparator", "Strategist"]
+        self.agent_order = ["Guardian", "Forensic", "Historian", "Inspector", "GeoValidator", "DocumentComparator", "CadastralAnalyst", "Strategist"]
         self.active_connections: list[WebSocket] = []
         self.is_running = False
         self.results = {}
@@ -90,7 +92,7 @@ class PipelineOrchestrator:
         # Wave 1: Independent agents (no cross-dependencies)
         # Wave 2: GeoValidator (needs Guardian's classifications for front-photo)
         # Wave 3: Strategist (needs all results)
-        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator"]
+        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator", "CadastralAnalyst"]
         wave2_names = ["GeoValidator"]
 
         async def _run_agent(agent_name: str, extra_results: dict = None):

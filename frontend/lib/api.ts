@@ -19,6 +19,18 @@ export async function parsePdf(pdfFile: File): Promise<PropertyData | null> {
     return data.property_data || null;
 }
 
+export async function parseLv(lvFile: File): Promise<LVData | null> {
+    const formData = new FormData();
+    formData.append('lv_file', lvFile);
+    const res = await fetch(`${API_BASE}/api/parse-lv`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.lv_data || null;
+}
+
 export interface ImageMetadata {
     gps_latitude: number | null;
     gps_longitude: number | null;
@@ -52,12 +64,46 @@ export interface PropertyData {
     vyuziti_podkrovi_procent: string | null;
 }
 
+export interface LVParcel {
+    parcel_number: string;
+    area_m2: number;
+    land_type: string;
+    land_use: string;
+    protection: string;
+    selected: boolean;
+}
+
+export interface LVEncumbrance {
+    type: string;
+    description: string;
+    beneficiary: string;
+    parcels: string[];
+    amount: string;
+    document: string;
+}
+
+export interface LVData {
+    kat_uzemi_kod: string;
+    kat_uzemi_nazev: string;
+    lv_number: string;
+    okres: string;
+    obec: string;
+    owners: { name: string; address: string; identifier: string; share: string }[];
+    parcels: LVParcel[];
+    buildings: { part_of: string; on_parcel: string }[];
+    rights_in_favor: string;
+    encumbrances: LVEncumbrance[];
+    notes: string;
+    seals: string;
+}
+
 export interface UploadResponse {
     session_id: string;
     files_uploaded: number;
     files_processed: number;
     images: ProcessedImage[];
     property_data: PropertyData | null;
+    lv_data: LVData | null;
 }
 
 export interface AgentLog {
@@ -103,6 +149,8 @@ export async function uploadFiles(
     propertyAddress?: string,
     pdfFile?: File,
     propertyData?: PropertyData,
+    lvPdfFile?: File,
+    selectedParcels?: string[],
 ): Promise<UploadResponse> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
@@ -111,6 +159,8 @@ export async function uploadFiles(
     if (propertyAddress) formData.append('property_address', propertyAddress);
     if (pdfFile) formData.append('pdf_file', pdfFile);
     if (propertyData) formData.append('property_data_json', JSON.stringify(propertyData));
+    if (lvPdfFile) formData.append('lv_pdf_file', lvPdfFile);
+    if (selectedParcels) formData.append('selected_parcels_json', JSON.stringify(selectedParcels));
 
     const res = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
