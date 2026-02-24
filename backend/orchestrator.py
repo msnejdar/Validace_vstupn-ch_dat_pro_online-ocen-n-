@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import WebSocket
 
-from agents.base import AgentStatus
+from agents.base import AgentStatus, AgentResult
 from agents.guardian import GuardianAgent
 from agents.forensic import ForensicAgent
 from agents.historian import HistorianAgent
@@ -124,18 +124,33 @@ class PipelineOrchestrator:
         wave1_tasks = [_run_agent(name) for name in wave1_names]
         wave1_results = await asyncio.gather(*wave1_tasks, return_exceptions=True)
 
-        for item in wave1_results:
+        for i, item in enumerate(wave1_results):
             if isinstance(item, Exception):
+                failed_name = wave1_names[i]
+                await self._notify_log(failed_name, f"Agent selhal: {item}", "error")
+                await self._notify_status(failed_name, "fail")
+                self.results[failed_name] = {
+                    "name": failed_name, "status": "fail",
+                    "summary": f"Chyba: {item}", "errors": [str(item)],
+                }
                 continue
             name, result = item
             agent_results[name] = result
 
         # Wave 2: GeoValidator (depends on Guardian for front-photo classification)
         for name in wave2_names:
-            _, result = await _run_agent(name, agent_results)
-            agent_results[name] = result
+            try:
+                _, result = await _run_agent(name, agent_results)
+                agent_results[name] = result
+            except Exception as e:
+                await self._notify_log(name, f"Agent selhal: {e}", "error")
+                await self._notify_status(name, "fail")
+                self.results[name] = {
+                    "name": name, "status": "fail",
+                    "summary": f"Chyba: {e}", "errors": [str(e)],
+                }
 
-        # Run Agent 5: Strategist with all previous results
+        # Run Strategist with all previous results
         strategist = self.agents["Strategist"]
         strategist_context = {**context, "agent_results": agent_results}
 
@@ -145,7 +160,17 @@ class PipelineOrchestrator:
         await self._notify_status("Strategist", "processing")
         await self._notify_log("Strategist", "Strategist aggregating all results...")
 
-        strategist_result = await strategist.execute(strategist_context)
+        try:
+            strategist_result = await strategist.execute(strategist_context)
+        except Exception as e:
+            await self._notify_log("Strategist", f"Chyba Strategist: {e}", "error")
+            strategist_result = AgentResult(
+                status=AgentStatus.FAIL,
+                summary=f"Strategist selhal: {e}",
+                errors=[str(e)],
+                details={"semaphore": "UNKNOWN", "semaphore_color": "gray"},
+            )
+
         agent_results["Strategist"] = strategist_result
 
         for log_entry in strategist.logs:
