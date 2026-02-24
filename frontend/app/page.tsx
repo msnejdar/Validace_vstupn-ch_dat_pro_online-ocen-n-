@@ -15,6 +15,9 @@ const EMPTY_PROPERTY_DATA: PropertyData = {
   celkova_podlahova_plocha: null,
   typ_vytapeni: null,
   adresa: null,
+  podkrovi: null,
+  podkrovi_obytne: null,
+  vyuziti_podkrovi_procent: null,
 };
 
 const DATA_LABELS: Record<keyof PropertyData, string> = {
@@ -26,6 +29,9 @@ const DATA_LABELS: Record<keyof PropertyData, string> = {
   celkova_podlahova_plocha: 'Celková podlahová plocha',
   typ_vytapeni: 'Typ vytápění',
   adresa: 'Adresa',
+  podkrovi: 'Podkroví',
+  podkrovi_obytne: 'Obytné podkroví',
+  vyuziti_podkrovi_procent: 'Využití podkroví (%)',
 };
 
 export default function Home() {
@@ -74,7 +80,7 @@ export default function Home() {
     try {
       const data = await parsePdf(file);
       if (data) {
-        setExtractedData(data);
+        setExtractedData({ ...data });
       } else {
         setError('PDF bylo zpracováno, ale nepodařilo se extrahovat údaje.');
       }
@@ -104,6 +110,10 @@ export default function Home() {
     setManualData(prev => ({ ...prev, [field]: value || null }));
   };
 
+  const updateExtractedField = (field: keyof PropertyData, value: string) => {
+    setExtractedData(prev => prev ? { ...prev, [field]: value || null } : prev);
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       setError('Nahrajte alespoň jednu fotografii.');
@@ -118,10 +128,13 @@ export default function Home() {
       const effectivePdf = dataSource === 'pdf' ? pdfFile || undefined : undefined;
       const effectiveManualData = dataSource === 'manual' ? manualData : undefined;
 
-      // Derive year_built and address from extracted data
+      // Use extractedData (possibly user-edited) or manual data
       const effectiveData = extractedData || (dataSource === 'manual' ? manualData : null);
       const yearBuiltVal = effectiveData?.stavba_dokoncena ? parseInt(effectiveData.stavba_dokoncena) : undefined;
       const addressVal = effectiveData?.adresa || undefined;
+
+      // If PDF was parsed and user edited the data, send user-edited version
+      const finalPropertyData = dataSource === 'pdf' && extractedData ? extractedData : effectiveManualData;
 
       const result = await uploadFiles(
         files,
@@ -129,7 +142,7 @@ export default function Home() {
         undefined,
         addressVal,
         effectivePdf,
-        effectiveManualData,
+        finalPropertyData,
       );
       setUploadData(result);
       setSessionId(result.session_id);
@@ -446,6 +459,40 @@ export default function Home() {
                         onChange={(e) => updateManualField('typ_vytapeni', e.target.value)}
                       />
                     </div>
+                    <div className={styles.inputGroup}>
+                      <label className={styles.inputLabel}>Podkroví</label>
+                      <select
+                        className="input-field"
+                        value={manualData.podkrovi || ''}
+                        onChange={(e) => updateManualField('podkrovi', e.target.value)}
+                      >
+                        <option value="">Vyberte...</option>
+                        <option value="ANO">ANO</option>
+                        <option value="NE">NE</option>
+                      </select>
+                    </div>
+                    <div className={styles.inputGroup}>
+                      <label className={styles.inputLabel}>Obytné podkroví</label>
+                      <select
+                        className="input-field"
+                        value={manualData.podkrovi_obytne || ''}
+                        onChange={(e) => updateManualField('podkrovi_obytne', e.target.value)}
+                      >
+                        <option value="">Vyberte...</option>
+                        <option value="ANO">ANO</option>
+                        <option value="NE">NE</option>
+                      </select>
+                    </div>
+                    <div className={styles.inputGroup}>
+                      <label className={styles.inputLabel}>Využití podkroví (%)</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="např. 80 %"
+                        value={manualData.vyuziti_podkrovi_procent || ''}
+                        onChange={(e) => updateManualField('vyuziti_podkrovi_procent', e.target.value)}
+                      />
+                    </div>
                     <div className={`${styles.inputGroup} ${styles.manualFormFull}`}>
                       <label className={styles.inputLabel}>Adresa nemovitosti</label>
                       <input
@@ -460,7 +507,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Extracted Data Display (shown after upload if PDF was parsed) */}
+              {/* Extracted Data Display — EDITABLE after PDF parsing */}
               {extractedData && (
                 <div className={styles.extractedData}>
                   <div className={styles.extractedDataTitle}>
@@ -468,18 +515,39 @@ export default function Home() {
                       <path d="M11.5 4L5.5 10L2.5 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     Extrahované údaje z PDF
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginLeft: '8px', fontWeight: 400 }}>— můžete upravit</span>
                   </div>
                   <div className={styles.extractedGrid}>
-                    {(Object.keys(DATA_LABELS) as (keyof PropertyData)[]).map(key => (
-                      <div key={key} className={styles.extractedItem}>
-                        <span className={styles.extractedLabel}>{DATA_LABELS[key]}</span>
-                        {extractedData[key] ? (
-                          <span className={styles.extractedValue}>{extractedData[key]}</span>
-                        ) : (
-                          <span className={styles.extractedValueMissing}>nenalezeno</span>
-                        )}
-                      </div>
-                    ))}
+                    {(Object.keys(DATA_LABELS) as (keyof PropertyData)[]).map(key => {
+                      // Use select for ANO/NE fields
+                      const isYesNo = key === 'podsklepeni' || key === 'podkrovi' || key === 'podkrovi_obytne';
+                      return (
+                        <div key={key} className={styles.extractedItem}>
+                          <span className={styles.extractedLabel}>{DATA_LABELS[key]}</span>
+                          {isYesNo ? (
+                            <select
+                              className="input-field"
+                              value={extractedData[key] || ''}
+                              onChange={(e) => updateExtractedField(key, e.target.value)}
+                              style={{ fontSize: '13px', padding: '6px 8px' }}
+                            >
+                              <option value="">nenalezeno</option>
+                              <option value="ANO">ANO</option>
+                              <option value="NE">NE</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              className="input-field"
+                              value={extractedData[key] || ''}
+                              placeholder="nenalezeno"
+                              onChange={(e) => updateExtractedField(key, e.target.value)}
+                              style={{ fontSize: '13px', padding: '6px 8px' }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -47,6 +47,9 @@ export interface PropertyData {
     celkova_podlahova_plocha: string | null;
     typ_vytapeni: string | null;
     adresa: string | null;
+    podkrovi: string | null;
+    podkrovi_obytne: string | null;
+    vyuziti_podkrovi_procent: string | null;
 }
 
 export interface UploadResponse {

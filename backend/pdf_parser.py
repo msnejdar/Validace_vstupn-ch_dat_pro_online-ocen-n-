@@ -33,6 +33,9 @@ class PropertyData:
     celkova_podlahova_plocha: Optional[str] = None  # e.g. "175 m²"
     typ_vytapeni: Optional[str] = None           # e.g. "lokální - Plynový standardní kotel (starší), WAW"
     adresa: Optional[str] = None                 # e.g. "Květná 1740, 68001 Boskovice"
+    podkrovi: Optional[str] = None               # e.g. "ANO" / "NE"
+    podkrovi_obytne: Optional[str] = None        # e.g. "ANO" / "NE"
+    vyuziti_podkrovi_procent: Optional[str] = None  # e.g. "80 %"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -48,11 +51,11 @@ _KNOWN_LABELS = [
     r"Typ\s+konstrukce", r"Po[čc]et\s+nadzemn", r"Po[čc]et\s+podla",
     r"Podskle", r"Vyu[žz]it[ií]", r"Typ\s+st[řr]echy", r"Rok\s+dokon",
     r"Stav\s+rodinn", r"Rok\s+rekonstrukce", r"Rozsah\s+rekonstrukce",
-    r"Voda", r"Celkov[áa]\s+podlahov", r"Celkov[áa]\s+plocha",
+    r"Voda\s*:", r"Celkov[áa]\s+podlahov", r"Celkov[áa]\s+plocha",
     r"Zastav[ěe]n[áa]\s+plocha", r"Kanalizace", r"P[řr][ií]pojka",
     r"P[řr][ií]jezd", r"Po[čc]et\s+gar[áa]", r"Katastr[áa]ln[ií]",
     r"[ČC][ií]slo\s+popisn", r"PS[ČC]", r"Obec", r"Ulice",
-    r"Obytné\s+podkrov", r"Um[ií]st[ěe]n[ií]", r"Je\s+zateplen",
+    r"Obytné\s+podkrov", r"Podkrov[ií]", r"Um[ií]st[ěe]n[ií]", r"Je\s+zateplen",
     r"Jak[áa]\s+m[áa]\s+d[ůu]m", r"M[áa]\s+d[ůu]m",
     r"Hlavn[ií]\s+zdroj", r"V\s+jak[ýy]ch\s+prostor",
     r"M[áa]te\s+sol", r"Jak\s+vyu[žz][ií]v", r"Kolik\s+m[áa]te",
@@ -122,6 +125,20 @@ _PATTERNS = {
         # Old: "Adresa nemovitosti Květná 1740, 68001 Boskovice"
         re.compile(r"Adresa\s+nemovitosti\s*:?\s*(.+)", re.IGNORECASE),
     ],
+    "podkrovi": [
+        # New: "Podkroví: ano"
+        re.compile(r"Podkrov[ií]\s*:?\s*(ano|ne|ANO|NE|Ano|Ne)", re.IGNORECASE),
+        # Old: "Podkroví ANO"
+        re.compile(r"Podkrov[ií]\s+(ANO|NE|Ano|Ne|ano|ne)", re.IGNORECASE),
+    ],
+    "podkrovi_obytne": [
+        # New: "Obytné podkroví: ano" or "Obytné podkroví: ne"
+        re.compile(r"Obytn[ée]\s+podkrov[ií]\s*:?\s*(ano|ne|ANO|NE|Ano|Ne)", re.IGNORECASE),
+    ],
+    "vyuziti_podkrovi_procent": [
+        # New: "Využití podkroví v %: 80 %" or "Využití podkroví v %: 0 %"
+        re.compile(r"Vyu[žz]it[ií]\s+podkrov[ií]\s+v\s*%\s*:?\s*(\d+\s*%?)", re.IGNORECASE),
+    ],
 }
 
 # Patterns for composing address from separate fields (new form format)
@@ -186,9 +203,13 @@ def parse_pdf(pdf_bytes: bytes) -> PropertyData:
         if year_match:
             data.stavba_dokoncena = year_match.group(1)
 
-    # Post-process: normalize podsklepeni to uppercase
+    # Post-process: normalize ANO/NE fields to uppercase
     if data.podsklepeni:
         data.podsklepeni = data.podsklepeni.upper()
+    if data.podkrovi:
+        data.podkrovi = data.podkrovi.upper()
+    if data.podkrovi_obytne:
+        data.podkrovi_obytne = data.podkrovi_obytne.upper()
 
     # Post-process: compose address from separate fields if not found directly
     # (new form has Ulice, Číslo popisné, Obec, PSČ as separate fields)
