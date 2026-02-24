@@ -1,4 +1,4 @@
-"""Pipeline Orchestrator – runs agents sequentially with real-time WebSocket updates."""
+"""Pipeline Orchestrator – runs agents in parallel waves with real-time WebSocket updates."""
 import asyncio
 import json
 import time
@@ -86,23 +86,26 @@ class PipelineOrchestrator:
 
         agent_results = {}
 
-        # Run agents 1-5 sequentially (all except Strategist)
-        for agent_name in self.agent_order[:-1]:  # All except Strategist
+        # ── Parallel execution ──
+        # Wave 1: Independent agents (no cross-dependencies)
+        # Wave 2: GeoValidator (needs Guardian's classifications for front-photo)
+        # Wave 3: Strategist (needs all results)
+        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator"]
+        wave2_names = ["GeoValidator"]
+
+        async def _run_agent(agent_name: str, extra_results: dict = None):
+            """Run a single agent, broadcast status/logs, return result."""
             agent = self.agents[agent_name]
 
-            # Update system prompt if customized
             if context.get("custom_prompts", {}).get(agent_name):
                 agent.system_prompt = context["custom_prompts"][agent_name]
 
             await self._notify_status(agent_name, "processing")
             await self._notify_log(agent_name, f"Agent {agent_name} starting...")
 
-            # Pass accumulated results so later agents can use earlier results
-            run_context = {**context, "agent_results": agent_results}
+            run_context = {**context, "agent_results": {**agent_results, **(extra_results or {})}}
             result = await agent.execute(run_context)
-            agent_results[agent_name] = result
 
-            # Send logs
             for log_entry in agent.logs:
                 await self._notify_log(agent_name, log_entry.message, log_entry.level)
 
@@ -113,6 +116,22 @@ class PipelineOrchestrator:
             )
 
             self.results[agent_name] = agent.to_dict()
+            return agent_name, result
+
+        # Wave 1: run all independent agents in parallel
+        wave1_tasks = [_run_agent(name) for name in wave1_names]
+        wave1_results = await asyncio.gather(*wave1_tasks, return_exceptions=True)
+
+        for item in wave1_results:
+            if isinstance(item, Exception):
+                continue
+            name, result = item
+            agent_results[name] = result
+
+        # Wave 2: GeoValidator (depends on Guardian for front-photo classification)
+        for name in wave2_names:
+            _, result = await _run_agent(name, agent_results)
+            agent_results[name] = result
 
         # Run Agent 5: Strategist with all previous results
         strategist = self.agents["Strategist"]
