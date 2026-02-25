@@ -154,26 +154,68 @@ def parse_pdf(pdf_bytes: bytes) -> PropertyData:
     """Parse a property valuation PDF and extract key fields.
 
     Supports both old and new ČS form layouts. Fields not found remain None.
-
-    Args:
-        pdf_bytes: Raw bytes of the PDF file.
-
-    Returns:
-        PropertyData with extracted fields (None for fields not found).
+    Uses table extraction (primary) + regex fallback.
     """
     data = PropertyData()
 
+    # Mapping of Czech table labels → PropertyData field names
+    TABLE_LABEL_MAP = {
+        "rok dokončení": "stavba_dokoncena",
+        "stavba dokončena": "stavba_dokoncena",
+        "stavba dokončena v r.": "stavba_dokoncena",
+        "stav rodinného domu": "stav_rodinneho_domu",
+        "počet nadzemních podlaží": "pocet_podlazi",
+        "počet podlaží": "pocet_podlazi",
+        "typ střechy": "typ_strechy",
+        "podsklepení": "podsklepeni",
+        "podsklepeno": "podsklepeni",
+        "celková podlahová plocha": "celkova_podlahova_plocha",
+        "typ vytápění": "typ_vytapeni",
+        "vytápění": "typ_vytapeni",
+        "adresa nemovitosti": "adresa",
+        "podkroví": "podkrovi",
+        "obytné podkroví": "podkrovi_obytne",
+        "využití podkroví v %": "vyuziti_podkrovi_procent",
+    }
+
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = ""
+
+        # ── Primary: table-based extraction ──
+        # The new ČS form uses 4-column tables: [label1, value1, label2, value2]
         for page in pdf.pages:
             page_text = page.extract_text()
             if page_text:
                 full_text += page_text + "\n"
 
+            tables = page.extract_tables()
+            for table in tables:
+                for row in table:
+                    if not row:
+                        continue
+                    # Clean cells
+                    cells = [
+                        re.sub(r"\s+", " ", (c or "")).strip()
+                        for c in row
+                    ]
+
+                    # Process pairs: (label, value) — works for 2-col and 4-col tables
+                    i = 0
+                    while i < len(cells) - 1:
+                        label = cells[i].lower().rstrip(":").strip()
+                        value = cells[i + 1].strip()
+
+                        if label and value:
+                            field_name = TABLE_LABEL_MAP.get(label)
+                            if field_name and not getattr(data, field_name, None):
+                                setattr(data, field_name, value)
+
+                        i += 2
+
     if not full_text.strip():
         return data
 
-    # Clean up multi-space sequences but keep newlines
+    # ── Fallback: regex-based extraction for fields not found in tables ──
     lines = full_text.split("\n")
     cleaned_lines = []
     for line in lines:
@@ -183,15 +225,15 @@ def parse_pdf(pdf_bytes: bytes) -> PropertyData:
 
     full_cleaned = "\n".join(cleaned_lines)
 
-    # Extract each field using regex patterns
     for field_name, patterns in _PATTERNS.items():
+        # Skip if already extracted from table
+        if getattr(data, field_name, None):
+            continue
         for pattern in patterns:
             match = pattern.search(full_cleaned)
             if match:
                 value = match.group(1).strip()
-                # Clean trailing whitespace and common artifacts
                 value = re.sub(r"\s+$", "", value)
-                # Truncate at the next known label (handles table two-column lines)
                 value = _truncate_at_next_label(value)
                 if value:
                     setattr(data, field_name, value)
