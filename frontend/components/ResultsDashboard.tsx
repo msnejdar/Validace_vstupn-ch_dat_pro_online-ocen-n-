@@ -345,6 +345,45 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                 </div>
                             )}
 
+                            {/* Access assessment */}
+                            {cadDetails.access_assessment && (() => {
+                                const access = cadDetails.access_assessment;
+                                const aColor = access.status === 'zajištěný' ? '#22c55e'
+                                    : access.status === 'nezajištěný' ? '#ef4444' : '#f59e0b';
+                                const aIcon = access.status === 'zajištěný' ? '✓'
+                                    : access.status === 'nezajištěný' ? '✗' : '?';
+                                return (
+                                    <div style={{
+                                        marginTop: '10px',
+                                        padding: '10px 14px',
+                                        borderRadius: '8px',
+                                        border: `1px solid ${aColor}33`,
+                                        background: `${aColor}08`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                    }}>
+                                        <span style={{
+                                            fontSize: '16px',
+                                            fontWeight: 700,
+                                            color: aColor,
+                                            width: '24px',
+                                            textAlign: 'center',
+                                        }}>{aIcon}</span>
+                                        <div>
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: aColor }}>
+                                                Přístup k nemovitosti: {access.status}
+                                            </div>
+                                            {access.reason && (
+                                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                                                    {access.reason}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {/* Risks table */}
                             {risks.length > 0 && (
                                 <div style={{ marginTop: '16px' }}>

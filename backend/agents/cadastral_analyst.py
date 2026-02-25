@@ -77,6 +77,16 @@ HLEDEJ TYTO RIZIKOVÉ FAKTORY:
 6. **Spoluvlastnictví** – více vlastníků, komplikované podíly
 7. **BPEJ/zemědělský půdní fond** – pozemky v ZPF (omezení stavby)
 
+8. **PŘÍSTUP K NEMOVITOSTI** – zhodnoť, zda je zajištěn právně bezpečný přístup:
+   Přístup je ZAJIŠTĚNÝ pokud platí ALESPOŇ JEDNO:
+   - Přístupová parcela je vedena v KN jako "ostatní plocha" / "komunikace" / "silnice"
+   - Přístupová parcela je ve vlastnictví obce nebo státu (ČR, Správa silnic, Ředitelství silnic apod.)
+   - Na přístupovou parcelu je zřízeno věcné břemeno přístupu / přechodu / průjezdu ve prospěch oceňované nemovitosti
+   - Vlastník oceňované nemovitosti je spoluvlastníkem přístupové parcely
+   
+   Pokud ŽÁDNÁ z podmínek není splněna → RIZIKO STŘEDNÍ: "Nezajištěný přístup k nemovitosti"
+   Pokud nelze přístup z dat LV jednoznačně posoudit → uveď jako poznámku
+
 Pro každé riziko uveď:
 - severity: "vysoké" / "střední" / "nízké"
 - description: co přesně bylo nalezeno
@@ -88,6 +98,10 @@ ODPOVÍDEJ ČESKY, POUZE V JSON:
     {"severity": "...", "category": "...", "description": "...", "recommendation": "..."}
   ],
   "overall_risk_level": "vysoké" / "střední" / "nízké" / "žádné",
+  "access_assessment": {
+    "status": "zajištěný" / "nezajištěný" / "nelze posoudit",
+    "reason": "Popis důvodu"
+  },
   "summary": "Celkové shrnutí rizik pro banku"
 }
 """
@@ -222,6 +236,7 @@ class CadastralAnalystAgent(BaseAgent):
                 "risks": all_risks,
                 "overall_risk_level": overall_risk,
                 "lv_risk_summary": lv_risks.get("summary", "") if lv_risks else "",
+                "access_assessment": lv_risks.get("access_assessment") if lv_risks else None,
                 "ortofoto_url": ortofoto_url,
                 "ortofoto_annotated_url": ortofoto_annotated_url,
                 "ortofoto_analysis": ortofoto_analysis,
@@ -256,108 +271,66 @@ class CadastralAnalystAgent(BaseAgent):
 
     # ─── Parcel Geocoding ─────────────────────────────────────────────────
     async def _fetch_parcel_geometries(self, lv_data: LVData, context: dict) -> tuple[dict, list | None]:
-        """Get parcel coordinates. Tries ČÚZK WFS, falls back to address geocoding."""
+        """Get parcel coordinates using Mapy.cz geocoding (most reliable)."""
         geometries = {}
         all_coords = []
 
-        # Approach 1: Try ČÚZK WFS (free, no API key)
-        CUZK_WFS = "https://services.cuzk.cz/wfs/inspire-cp-wfs.asp"
+        # Primary: Geocode property address via Mapy.cz (proven reliable from GeoValidator)
+        property_address = context.get("property_address", "")
+        ku_name = lv_data.kat_uzemi_nazev
+        obec = lv_data.obec
 
-        async with httpx.AsyncClient(timeout=20) as client:
-            for parcel in lv_data.parcels:
-                try:
-                    # WFS GetFeature request with filter
-                    wfs_params = {
-                        "SERVICE": "WFS",
-                        "VERSION": "2.0.0",
-                        "REQUEST": "GetFeature",
-                        "TYPENAMES": "cp:CadastralParcel",
-                        "COUNT": "1",
-                        "SRSNAME": "EPSG:4326",
-                        "CQL_FILTER": f"localId LIKE '%:{lv_data.kat_uzemi_kod}:{parcel.parcel_number.replace('/', '%2F')}'"
-                    }
+        geocode_query = property_address or (f"{ku_name}, {obec}" if ku_name else "")
 
-                    resp = await client.get(CUZK_WFS, params=wfs_params)
+        if geocode_query:
+            try:
+                from config import MAPY_CZ_API_KEY
+                self.log(f"Geokódování: '{geocode_query}'", "thinking")
 
-                    if resp.status_code == 200 and "coordinates" in resp.text:
-                        # Parse GML coordinates from WFS response
-                        import re
-                        coords_match = re.search(
-                            r'<gml:pos[^>]*>([0-9.]+)\s+([0-9.]+)</gml:pos>',
-                            resp.text
-                        )
-                        if not coords_match:
-                            coords_match = re.search(
-                                r'<gml:posList[^>]*>([0-9.\s]+)</gml:posList>',
-                                resp.text
-                            )
-
-                        if coords_match:
-                            # EPSG:4326 → lat, lon
-                            parts = coords_match.group(1).strip().split()
-                            if len(parts) >= 2:
-                                lat = float(parts[0])
-                                lon = float(parts[1])
-                                geometries[parcel.parcel_number] = {
-                                    "lat": lat, "lon": lon,
-                                    "area_m2": parcel.area_m2,
-                                }
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(
+                        "https://api.mapy.cz/v1/geocode",
+                        params={"query": geocode_query, "lang": "cs", "limit": "1"},
+                        headers={"X-Mapy-Api-Key": MAPY_CZ_API_KEY},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        items = data.get("items", [])
+                        if items:
+                            pos = items[0].get("position", {})
+                            lat = pos.get("lat")
+                            lon = pos.get("lon")
+                            if lat and lon:
                                 all_coords.append((lat, lon))
-                                self.log(f"Parcela {parcel.parcel_number}: ({lat:.6f}, {lon:.6f})")
-                                continue
+                                self.log(f"Souřadnice nemovitosti: ({lat:.6f}, {lon:.6f})")
 
-                    self.log(f"WFS: parcela {parcel.parcel_number} nenalezena", "warn")
+                                # Assign coords to first parcel as reference point
+                                if lv_data.parcels:
+                                    geometries[lv_data.parcels[0].parcel_number] = {
+                                        "lat": lat, "lon": lon,
+                                        "area_m2": lv_data.parcels[0].area_m2,
+                                    }
+            except Exception as e:
+                self.log(f"Geokódování selhalo: {e}", "warn")
 
-                except Exception as e:
-                    self.log(f"WFS chyba pro {parcel.parcel_number}: {e}", "warn")
-
-        # Approach 2: Fallback — geocode by address using Mapy.cz
         if not all_coords:
-            address = context.get("address", "")
-            ku_name = lv_data.kat_uzemi_nazev
-            obec = lv_data.obec
+            self.log("Nepodařilo se získat souřadnice nemovitosti", "warn")
 
-            geocode_query = address or f"{ku_name}, {obec}" if ku_name else ""
-            if geocode_query:
-                try:
-                    self.log(f"Fallback: geokódování '{geocode_query}' přes Mapy.cz", "thinking")
-                    from config import MAPY_CZ_API_KEY
-
-                    async with httpx.AsyncClient(timeout=10) as client:
-                        resp = await client.get(
-                            "https://api.mapy.cz/v1/geocode",
-                            params={"query": geocode_query, "lang": "cs", "limit": "1"},
-                            headers={"X-Mapy-Api-Key": MAPY_CZ_API_KEY},
-                        )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            items = data.get("items", [])
-                            if items:
-                                pos = items[0].get("position", {})
-                                lat = pos.get("lat")
-                                lon = pos.get("lon")
-                                if lat and lon:
-                                    all_coords.append((lat, lon))
-                                    self.log(f"Geokódováno: ({lat:.6f}, {lon:.6f})")
-                except Exception as e:
-                    self.log(f"Fallback geokódování selhalo: {e}", "warn")
-
-        # Compute bounding box from all coordinates
+        # Compute bounding box from coordinates
         bbox = None
         if all_coords:
             lats = [c[0] for c in all_coords]
             lons = [c[1] for c in all_coords]
-            # Buffer based on number of parcels and total area
+            # Buffer based on total parcel area (~sqrt(area) meters → degrees)
             total_area = sum(p.area_m2 for p in lv_data.parcels if p.area_m2)
-            # ~sqrt(area) meters → degrees (1 deg ≈ 111km)
-            buffer = max(0.002, (total_area ** 0.5) / 111000 * 1.5)
+            buffer = max(0.0015, (total_area ** 0.5) / 111000 * 2.0)
             bbox = [
-                min(lons) - buffer,  # minlon
-                min(lats) - buffer,  # minlat
-                max(lons) + buffer,  # maxlon
-                max(lats) + buffer,  # maxlat
+                min(lons) - buffer,
+                min(lats) - buffer,
+                max(lons) + buffer,
+                max(lats) + buffer,
             ]
-            self.log(f"BBox: {bbox}")
+            self.log(f"BBox ortofota: buffer={buffer:.5f}° ({int(buffer * 111000)}m)")
 
         return geometries, bbox
 
