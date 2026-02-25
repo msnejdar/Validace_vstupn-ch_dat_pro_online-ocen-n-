@@ -88,67 +88,53 @@ class PipelineOrchestrator:
 
         agent_results = {}
 
-        # ── Semaphore-limited parallel execution ──
-        # Max 2 agents run concurrently to stay within 512MB RAM (Render free tier).
-        # GeoValidator depends on Guardian, Strategist depends on all others.
-        concurrency_limit = asyncio.Semaphore(2)
+        # ── Sequential execution (Render free tier = 512MB RAM) ──
+        # Agents run one at a time to minimize memory.
+        # GeoValidator depends on Guardian, Strategist depends on all.
+        import gc
 
-        async def _run_agent(agent_name: str, extra_results: dict = None):
-            """Run a single agent with concurrency limit."""
-            async with concurrency_limit:
-                agent = self.agents[agent_name]
+        async def _run_agent(agent_name: str):
+            """Run a single agent sequentially."""
+            agent = self.agents[agent_name]
 
-                if context.get("custom_prompts", {}).get(agent_name):
-                    agent.system_prompt = context["custom_prompts"][agent_name]
+            if context.get("custom_prompts", {}).get(agent_name):
+                agent.system_prompt = context["custom_prompts"][agent_name]
 
-                await self._notify_status(agent_name, "processing")
-                await self._notify_log(agent_name, f"Agent {agent_name} starting...")
+            await self._notify_status(agent_name, "processing")
+            await self._notify_log(agent_name, f"Agent {agent_name} starting...")
 
-                run_context = {**context, "agent_results": {**agent_results, **(extra_results or {})}}
-                result = await agent.execute(run_context)
+            run_context = {**context, "agent_results": dict(agent_results)}
+            result = await agent.execute(run_context)
 
-                for log_entry in agent.logs:
-                    await self._notify_log(agent_name, log_entry.message, log_entry.level)
+            for log_entry in agent.logs:
+                await self._notify_log(agent_name, log_entry.message, log_entry.level)
 
-                await self._notify_status(
-                    agent_name,
-                    result.status.value,
-                    {"elapsed_time": agent.get_elapsed_time()},
-                )
+            await self._notify_status(
+                agent_name,
+                result.status.value,
+                {"elapsed_time": agent.get_elapsed_time()},
+            )
 
-                self.results[agent_name] = agent.to_dict()
-                return agent_name, result
+            self.results[agent_name] = agent.to_dict()
+            return result
 
-        # Wave 1: Independent agents (max 2 at a time via semaphore)
-        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator", "CadastralAnalyst"]
-        wave1_tasks = [_run_agent(name) for name in wave1_names]
-        wave1_results = await asyncio.gather(*wave1_tasks, return_exceptions=True)
+        # Run agents one by one
+        run_order = ["Guardian", "Forensic", "Historian", "Inspector",
+                     "DocumentComparator", "CadastralAnalyst", "GeoValidator"]
 
-        for i, item in enumerate(wave1_results):
-            if isinstance(item, Exception):
-                failed_name = wave1_names[i]
-                await self._notify_log(failed_name, f"Agent selhal: {item}", "error")
-                await self._notify_status(failed_name, "fail")
-                self.results[failed_name] = {
-                    "name": failed_name, "status": "fail",
-                    "summary": f"Chyba: {item}", "errors": [str(item)],
-                }
-                continue
-            name, result = item
-            agent_results[name] = result
-
-        # Wave 2: GeoValidator (depends on Guardian for front-photo classification)
-        for name in ["GeoValidator"]:
+        for agent_name in run_order:
             try:
-                _, result = await _run_agent(name, agent_results)
-                agent_results[name] = result
+                result = await _run_agent(agent_name)
+                agent_results[agent_name] = result
             except Exception as e:
-                await self._notify_log(name, f"Agent selhal: {e}", "error")
-                await self._notify_status(name, "fail")
-                self.results[name] = {
-                    "name": name, "status": "fail",
+                await self._notify_log(agent_name, f"Agent selhal: {e}", "error")
+                await self._notify_status(agent_name, "fail")
+                self.results[agent_name] = {
+                    "name": agent_name, "status": "fail",
                     "summary": f"Chyba: {e}", "errors": [str(e)],
                 }
+            # Free memory between agent runs
+            gc.collect()
 
         # Run Strategist with all previous results
         strategist = self.agents["Strategist"]
