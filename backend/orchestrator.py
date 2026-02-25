@@ -88,39 +88,39 @@ class PipelineOrchestrator:
 
         agent_results = {}
 
-        # ── Parallel execution ──
-        # Wave 1: Independent agents (no cross-dependencies)
-        # Wave 2: GeoValidator (needs Guardian's classifications for front-photo)
-        # Wave 3: Strategist (needs all results)
-        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator", "CadastralAnalyst"]
-        wave2_names = ["GeoValidator"]
+        # ── Semaphore-limited parallel execution ──
+        # Max 2 agents run concurrently to stay within 512MB RAM (Render free tier).
+        # GeoValidator depends on Guardian, Strategist depends on all others.
+        concurrency_limit = asyncio.Semaphore(2)
 
         async def _run_agent(agent_name: str, extra_results: dict = None):
-            """Run a single agent, broadcast status/logs, return result."""
-            agent = self.agents[agent_name]
+            """Run a single agent with concurrency limit."""
+            async with concurrency_limit:
+                agent = self.agents[agent_name]
 
-            if context.get("custom_prompts", {}).get(agent_name):
-                agent.system_prompt = context["custom_prompts"][agent_name]
+                if context.get("custom_prompts", {}).get(agent_name):
+                    agent.system_prompt = context["custom_prompts"][agent_name]
 
-            await self._notify_status(agent_name, "processing")
-            await self._notify_log(agent_name, f"Agent {agent_name} starting...")
+                await self._notify_status(agent_name, "processing")
+                await self._notify_log(agent_name, f"Agent {agent_name} starting...")
 
-            run_context = {**context, "agent_results": {**agent_results, **(extra_results or {})}}
-            result = await agent.execute(run_context)
+                run_context = {**context, "agent_results": {**agent_results, **(extra_results or {})}}
+                result = await agent.execute(run_context)
 
-            for log_entry in agent.logs:
-                await self._notify_log(agent_name, log_entry.message, log_entry.level)
+                for log_entry in agent.logs:
+                    await self._notify_log(agent_name, log_entry.message, log_entry.level)
 
-            await self._notify_status(
-                agent_name,
-                result.status.value,
-                {"elapsed_time": agent.get_elapsed_time()},
-            )
+                await self._notify_status(
+                    agent_name,
+                    result.status.value,
+                    {"elapsed_time": agent.get_elapsed_time()},
+                )
 
-            self.results[agent_name] = agent.to_dict()
-            return agent_name, result
+                self.results[agent_name] = agent.to_dict()
+                return agent_name, result
 
-        # Wave 1: run all independent agents in parallel
+        # Wave 1: Independent agents (max 2 at a time via semaphore)
+        wave1_names = ["Guardian", "Forensic", "Historian", "Inspector", "DocumentComparator", "CadastralAnalyst"]
         wave1_tasks = [_run_agent(name) for name in wave1_names]
         wave1_results = await asyncio.gather(*wave1_tasks, return_exceptions=True)
 
@@ -138,7 +138,7 @@ class PipelineOrchestrator:
             agent_results[name] = result
 
         # Wave 2: GeoValidator (depends on Guardian for front-photo classification)
-        for name in wave2_names:
+        for name in ["GeoValidator"]:
             try:
                 _, result = await _run_agent(name, agent_results)
                 agent_results[name] = result
