@@ -9,6 +9,7 @@
 import json
 import os
 import httpx
+from PIL import Image, ImageDraw, ImageFont
 
 from google import genai
 from google.genai import types
@@ -31,22 +32,32 @@ Analyzuj ortofoto a hledej STAVBY na pozemcích, které NEJSOU zakresleny v kata
 PRAVIDLA PRO DETEKCI:
 1. **Vedlejší stavba > 45 m²**: Pokud na pozemku vidíš budovu/stavbu, která NENÍ uvedena v LV jako součást pozemku
    → RIZIKO STŘEDNÍ: "Nezakreslená vedlejší stavba se zastavěnou plochou nad 45 m² – podmínka zákresu do KN"
-   → Poznámka: pokud dle fotek nemovitosti stavba NENÍ obytná ani vytápěná, riziko zůstává střední
    
 2. **Přístavba k hlavní stavbě > 16 m²**: Pokud hlavní stavba na ortofoto vypadá větší než zastavěná plocha pozemku
    → RIZIKO STŘEDNÍ: "Nezakreslená přístavba k hlavní stavbě se zastavěnou plochou nad 16 m² – podmínka zákresu do KN"
 
-3. Pokud NEVIDÍŠ žádné podezřelé stavby → "Žádná rizika nezjištěna"
+3. Pokud NEVIDÍŠ žádné podezřelé stavby → buildings_detected bude prázdný seznam []
+
+Pro KAŽDOU detekovanou stavbu uveď přibližnou pozici na obrázku jako bounding box v procentech (0-100):
+- bbox_x: levý okraj v % šířky obrázku
+- bbox_y: horní okraj v % výšky obrázku  
+- bbox_w: šířka v % šířky obrázku
+- bbox_h: výška v % výšky obrázku
 
 ODPOVÍDEJ ČESKY, POUZE V JSON:
 {
   "buildings_detected": [
     {
-      "description": "Popis stavby/přístavby",
+      "label": "Krátký popis (max 4 slova)",
+      "description": "Podrobný popis stavby/přístavby",
       "estimated_area_m2": 60,
       "risk_level": "střední",
       "risk_description": "Popis rizika",
-      "recommendation": "Doporučení"
+      "recommendation": "Doporučení",
+      "bbox_x": 30,
+      "bbox_y": 40,
+      "bbox_w": 15,
+      "bbox_h": 12
     }
   ],
   "overall_assessment": "Celkové hodnocení ortofota – co vidíte na pozemcích",
@@ -156,9 +167,18 @@ class CadastralAnalystAgent(BaseAgent):
 
         # ── Step 5: AI analysis of ortofoto ──
         ortofoto_analysis = None
+        ortofoto_annotated_url = None
         if ortofoto_path and self.client:
             self.log("AI analýza ortofota – hledání nezakreslených staveb...", "thinking")
             ortofoto_analysis = await self._analyze_ortofoto(ortofoto_path, lv_data, images)
+
+            # Annotate ortofoto with detected buildings
+            if ortofoto_analysis and ortofoto_analysis.get("buildings_detected"):
+                annotated_path = self._annotate_ortofoto(
+                    ortofoto_path, ortofoto_analysis["buildings_detected"], session_id
+                )
+                if annotated_path:
+                    ortofoto_annotated_url = f"/uploads/{session_id}/ortofoto_annotated.jpg"
 
         # ── Step 6: Build result ──
         warnings = []
@@ -204,6 +224,7 @@ class CadastralAnalystAgent(BaseAgent):
                 "overall_risk_level": overall_risk,
                 "lv_risk_summary": lv_risks.get("summary", "") if lv_risks else "",
                 "ortofoto_url": ortofoto_url,
+                "ortofoto_annotated_url": ortofoto_annotated_url,
                 "ortofoto_analysis": ortofoto_analysis,
                 "parcel_geometries": parcel_geometries,
                 "bbox": bbox,
@@ -393,4 +414,79 @@ class CadastralAnalystAgent(BaseAgent):
 
         except Exception as e:
             self.log(f"Chyba AI analýzy ortofota: {e}", "warn")
+            return None
+
+    # ─── Annotate ortofoto with detected buildings ──────────────────────
+    def _annotate_ortofoto(self, ortofoto_path: str, buildings: list, session_id: str) -> str | None:
+        """Draw bounding boxes and labels on ortofoto for detected buildings."""
+        try:
+            img = Image.open(ortofoto_path).convert("RGB")
+            draw = ImageDraw.Draw(img)
+            w, h = img.size
+
+            # Color mapping by risk level
+            RISK_COLORS = {
+                "vysoké": (220, 38, 38),    # red
+                "střední": (245, 158, 11),   # amber/orange
+                "nízké": (34, 197, 94),      # green
+            }
+
+            # Try to load a font, fall back to default
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+                font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+            except (IOError, OSError):
+                font = ImageFont.load_default()
+                font_small = font
+
+            for i, b in enumerate(buildings, 1):
+                bx = b.get("bbox_x", 0) / 100.0
+                by = b.get("bbox_y", 0) / 100.0
+                bw = b.get("bbox_w", 10) / 100.0
+                bh = b.get("bbox_h", 10) / 100.0
+
+                x1 = int(bx * w)
+                y1 = int(by * h)
+                x2 = int((bx + bw) * w)
+                y2 = int((by + bh) * h)
+
+                # Clamp to image bounds
+                x1 = max(0, min(x1, w - 1))
+                y1 = max(0, min(y1, h - 1))
+                x2 = max(x1 + 1, min(x2, w))
+                y2 = max(y1 + 1, min(y2, h))
+
+                risk = b.get("risk_level", "střední")
+                color = RISK_COLORS.get(risk, (245, 158, 11))
+                label = b.get("label", f"Stavba #{i}")
+                area = b.get("estimated_area_m2", "?")
+
+                # Draw rectangle (3px thick)
+                for offset in range(3):
+                    draw.rectangle(
+                        [x1 - offset, y1 - offset, x2 + offset, y2 + offset],
+                        outline=color,
+                    )
+
+                # Draw label background
+                label_text = f"{label} (~{area} m²)"
+                bbox = draw.textbbox((0, 0), label_text, font=font)
+                text_w = bbox[2] - bbox[0]
+                text_h = bbox[3] - bbox[1]
+                label_y = max(0, y1 - text_h - 6)
+                draw.rectangle(
+                    [x1, label_y, x1 + text_w + 8, label_y + text_h + 4],
+                    fill=color,
+                )
+                draw.text((x1 + 4, label_y + 2), label_text, fill=(255, 255, 255), font=font)
+
+            # Save annotated image
+            session_dir = os.path.join(UPLOAD_DIR, session_id)
+            annotated_path = os.path.join(session_dir, "ortofoto_annotated.jpg")
+            img.save(annotated_path, "JPEG", quality=90)
+            self.log(f"Ortofoto anotováno: {len(buildings)} staveb označeno")
+            return annotated_path
+
+        except Exception as e:
+            self.log(f"Chyba anotace ortofota: {e}", "warn")
             return None

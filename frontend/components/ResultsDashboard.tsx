@@ -97,7 +97,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
 
                 {/* ── Agent Results Cards ── */}
                 <div className={styles.overviewGrid}>
-                    {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator'].map(name => {
+                    {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator', 'CadastralAnalyst'].map(name => {
                         const agent = agents[name];
                         if (!agent) return null;
                         const meta = AGENT_META[name];
@@ -139,6 +139,12 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                 {name === 'GeoValidator' && details.visual_comparison && (
                                     <div className={styles.ovDetails}>
                                         <span>🗺️ Shoda panorama: {Math.round(details.visual_comparison.confidence * 100)}%</span>
+                                    </div>
+                                )}
+                                {name === 'CadastralAnalyst' && details.risks && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📋 {details.risks.length} rizik(a) nalezeno</span>
+                                        {details.ortofoto_url && <span>🛰️ Ortofoto staženo</span>}
                                     </div>
                                 )}
 
@@ -262,6 +268,138 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                 <p className={styles.comparisonNote}>
                                     💡 {cmp.notes}
                                 </p>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* ── CadastralAnalyst: Ortofoto + Risks ── */}
+                {(() => {
+                    const cadAgent = agents['CadastralAnalyst'];
+                    const cadDetails = cadAgent?.result?.details;
+                    if (!cadDetails || cadDetails.skipped) return null;
+
+                    const ortofotoUrl = cadDetails.ortofoto_annotated_url || cadDetails.ortofoto_url;
+                    const originalUrl = cadDetails.ortofoto_url;
+                    const risks = cadDetails.risks || [];
+                    const analysis = cadDetails.ortofoto_analysis;
+                    const lvData = cadDetails.lv_data;
+
+                    const riskColors: Record<string, string> = {
+                        'vysoké': '#ef4444',
+                        'střední': '#f59e0b',
+                        'nízké': '#22c55e',
+                    };
+
+                    return (
+                        <div className={styles.comparisonCard}>
+                            <div className={styles.comparisonHeader}>
+                                <h3 className={styles.comparisonTitle}>
+                                    🏛️ Katastr & LV — ortofoto funkčního celku
+                                </h3>
+                                {lvData && (
+                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                                        LV {lvData.lv_number} · k.ú. {lvData.kat_uzemi_nazev}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Ortofoto image */}
+                            {ortofotoUrl && (
+                                <div style={{ margin: '16px 0' }}>
+                                    <div style={{
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        overflow: 'hidden',
+                                        background: '#111',
+                                    }}>
+                                        <img
+                                            src={`${API_BASE}${ortofotoUrl}`}
+                                            alt="Ortofoto funkčního celku"
+                                            style={{ width: '100%', display: 'block' }}
+                                            onError={(e) => {
+                                                // Fallback to original if annotated fails
+                                                if (originalUrl && (e.target as HTMLImageElement).src.includes('annotated')) {
+                                                    (e.target as HTMLImageElement).src = `${API_BASE}${originalUrl}`;
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', textAlign: 'center' }}>
+                                        Ortofoto ČÚZK — {cadDetails.ortofoto_annotated_url ? 'se zvýrazněnými stavbami' : 'funkční celek'}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Overall assessment from AI */}
+                            {analysis?.overall_assessment && (
+                                <div className={styles.comparisonText}>
+                                    <p>{analysis.overall_assessment}</p>
+                                </div>
+                            )}
+
+                            {/* LV Risk summary */}
+                            {cadDetails.lv_risk_summary && (
+                                <div className={styles.comparisonText} style={{ marginTop: '8px' }}>
+                                    <p>📋 {cadDetails.lv_risk_summary}</p>
+                                </div>
+                            )}
+
+                            {/* Risks table */}
+                            {risks.length > 0 && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: 'rgba(255,255,255,0.7)' }}>
+                                        Nalezená rizika
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {risks.map((r: any, i: number) => (
+                                            <div key={i} style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '10px',
+                                                padding: '10px 12px',
+                                                background: 'rgba(255,255,255,0.02)',
+                                                border: `1px solid ${riskColors[r.severity] || '#666'}33`,
+                                                borderRadius: '8px',
+                                            }}>
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    background: `${riskColors[r.severity] || '#666'}22`,
+                                                    color: riskColors[r.severity] || '#999',
+                                                    textTransform: 'uppercase',
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0,
+                                                }}>
+                                                    {r.severity}
+                                                </span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
+                                                        {r.description}
+                                                    </div>
+                                                    {r.recommendation && (
+                                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                                                            💡 {r.recommendation}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {risks.length === 0 && !cadDetails.skipped && (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '16px',
+                                    color: '#22c55e',
+                                    fontSize: '14px',
+                                }}>
+                                    ✓ Žádná rizika v katastru nezjištěna
+                                </div>
                             )}
                         </div>
                     );
