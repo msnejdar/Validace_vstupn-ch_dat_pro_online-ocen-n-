@@ -15,10 +15,9 @@ from google import genai
 from google.genai import types
 
 from agents.base import BaseAgent, AgentResult, AgentStatus
-from config import GEMINI_API_KEY, GEMINI_MODEL, CUZK_API_KEY, UPLOAD_DIR
+from config import GEMINI_API_KEY, GEMINI_MODEL, UPLOAD_DIR
 from lv_parser import parse_lv, LVData
 
-CUZK_API_BASE = "https://api-kn.cuzk.gov.cz"
 CUZK_WMS_ORTOFOTO = "https://ags.cuzk.gov.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer"
 
 ORTOFOTO_ANALYSIS_PROMPT = """Jsi expert na analýzu leteckých/satelitních snímků nemovitostí pro účely bankovních ocenění.
@@ -151,12 +150,12 @@ class CadastralAnalystAgent(BaseAgent):
         if self.client:
             lv_risks = await self._analyze_lv_risks(lv_data)
 
-        # ── Step 3: Fetch parcel geometry from ČÚZK API ──
+        # ── Step 3: Fetch parcel coordinates ──
         parcel_geometries = {}
         bbox = None
-        if CUZK_API_KEY and lv_data.kat_uzemi_kod and lv_data.parcels:
-            self.log("Získávání geometrie parcel z ČÚZK...", "thinking")
-            parcel_geometries, bbox = await self._fetch_parcel_geometries(lv_data)
+        if lv_data.kat_uzemi_kod and lv_data.parcels:
+            self.log("Získávání souřadnic parcel...", "thinking")
+            parcel_geometries, bbox = await self._fetch_parcel_geometries(lv_data, context)
 
         # ── Step 4: Download ortofoto ──
         ortofoto_path = None
@@ -255,74 +254,103 @@ class CadastralAnalystAgent(BaseAgent):
             self.log(f"Chyba AI analýzy LV: {e}", "warn")
             return None
 
-    # ─── ČÚZK Parcel Geometry ───────────────────────────────────────────
-    async def _fetch_parcel_geometries(self, lv_data: LVData) -> tuple[dict, list | None]:
-        """Fetch parcel boundaries from ČÚZK REST API and compute bounding box."""
-        headers = {"ApiKey": CUZK_API_KEY, "Accept": "application/json"}
+    # ─── Parcel Geocoding ─────────────────────────────────────────────────
+    async def _fetch_parcel_geometries(self, lv_data: LVData, context: dict) -> tuple[dict, list | None]:
+        """Get parcel coordinates. Tries ČÚZK WFS, falls back to address geocoding."""
         geometries = {}
         all_coords = []
 
-        async with httpx.AsyncClient(timeout=15) as client:
+        # Approach 1: Try ČÚZK WFS (free, no API key)
+        CUZK_WFS = "https://services.cuzk.cz/wfs/inspire-cp-wfs.asp"
+
+        async with httpx.AsyncClient(timeout=20) as client:
             for parcel in lv_data.parcels:
                 try:
-                    # Parse parcel number: "1951/12" → kmenove=1951, poddeleni=12
-                    parts = parcel.parcel_number.split("/")
-                    kmenove = parts[0]
-                    poddeleni = parts[1] if len(parts) > 1 else "0"
+                    # WFS GetFeature request with filter
+                    wfs_params = {
+                        "SERVICE": "WFS",
+                        "VERSION": "2.0.0",
+                        "REQUEST": "GetFeature",
+                        "TYPENAMES": "cp:CadastralParcel",
+                        "COUNT": "1",
+                        "SRSNAME": "EPSG:4326",
+                        "CQL_FILTER": f"localId LIKE '%:{lv_data.kat_uzemi_kod}:{parcel.parcel_number.replace('/', '%2F')}'"
+                    }
 
-                    # ČÚZK API: search parcel by kat. území + parcel number
-                    resp = await client.get(
-                        f"{CUZK_API_BASE}/Parcela/Vyhledani",
-                        params={
-                            "katastralniUzemiKod": lv_data.kat_uzemi_kod,
-                            "kmenoveCisloParcely": kmenove,
-                            "poddeleniCislaParcely": poddeleni,
-                        },
-                        headers=headers,
-                    )
+                    resp = await client.get(CUZK_WFS, params=wfs_params)
 
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        items = data.get("data", [])
-                        if items:
-                            item = items[0]
-                            parcel_id = item.get("id")
+                    if resp.status_code == 200 and "coordinates" in resp.text:
+                        # Parse GML coordinates from WFS response
+                        import re
+                        coords_match = re.search(
+                            r'<gml:pos[^>]*>([0-9.]+)\s+([0-9.]+)</gml:pos>',
+                            resp.text
+                        )
+                        if not coords_match:
+                            coords_match = re.search(
+                                r'<gml:posList[^>]*>([0-9.\s]+)</gml:posList>',
+                                resp.text
+                            )
 
-                            # Get detailed parcel info with geometry
-                            if parcel_id:
-                                detail_resp = await client.get(
-                                    f"{CUZK_API_BASE}/Parcela/{parcel_id}",
-                                    headers=headers,
-                                )
-                                if detail_resp.status_code == 200:
-                                    detail = detail_resp.json().get("data", {})
-                                    geom = detail.get("definicniBod", {})
-                                    lat = geom.get("souradniceY")
-                                    lon = geom.get("souradniceX")
-                                    if lat and lon:
-                                        # Note: ČÚZK uses JTSK (EPSG:5514), definicniBod may be in WGS84
-                                        geometries[parcel.parcel_number] = {
-                                            "lat": lat, "lon": lon,
-                                            "area_m2": parcel.area_m2,
-                                        }
-                                        all_coords.append((lat, lon))
-                                        self.log(f"Parcela {parcel.parcel_number}: ({lat}, {lon})")
+                        if coords_match:
+                            # EPSG:4326 → lat, lon
+                            parts = coords_match.group(1).strip().split()
+                            if len(parts) >= 2:
+                                lat = float(parts[0])
+                                lon = float(parts[1])
+                                geometries[parcel.parcel_number] = {
+                                    "lat": lat, "lon": lon,
+                                    "area_m2": parcel.area_m2,
+                                }
+                                all_coords.append((lat, lon))
+                                self.log(f"Parcela {parcel.parcel_number}: ({lat:.6f}, {lon:.6f})")
+                                continue
 
-                    elif resp.status_code == 404:
-                        self.log(f"Parcela {parcel.parcel_number} nenalezena v ČÚZK.", "warn")
-                    else:
-                        self.log(f"ČÚZK API {resp.status_code} pro {parcel.parcel_number}", "warn")
+                    self.log(f"WFS: parcela {parcel.parcel_number} nenalezena", "warn")
 
                 except Exception as e:
-                    self.log(f"Chyba ČÚZK pro {parcel.parcel_number}: {e}", "warn")
+                    self.log(f"WFS chyba pro {parcel.parcel_number}: {e}", "warn")
+
+        # Approach 2: Fallback — geocode by address using Mapy.cz
+        if not all_coords:
+            address = context.get("address", "")
+            ku_name = lv_data.kat_uzemi_nazev
+            obec = lv_data.obec
+
+            geocode_query = address or f"{ku_name}, {obec}" if ku_name else ""
+            if geocode_query:
+                try:
+                    self.log(f"Fallback: geokódování '{geocode_query}' přes Mapy.cz", "thinking")
+                    from config import MAPY_CZ_API_KEY
+
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        resp = await client.get(
+                            "https://api.mapy.cz/v1/geocode",
+                            params={"query": geocode_query, "lang": "cs", "limit": "1"},
+                            headers={"X-Mapy-Api-Key": MAPY_CZ_API_KEY},
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            items = data.get("items", [])
+                            if items:
+                                pos = items[0].get("position", {})
+                                lat = pos.get("lat")
+                                lon = pos.get("lon")
+                                if lat and lon:
+                                    all_coords.append((lat, lon))
+                                    self.log(f"Geokódováno: ({lat:.6f}, {lon:.6f})")
+                except Exception as e:
+                    self.log(f"Fallback geokódování selhalo: {e}", "warn")
 
         # Compute bounding box from all coordinates
         bbox = None
         if all_coords:
             lats = [c[0] for c in all_coords]
             lons = [c[1] for c in all_coords]
-            # Add buffer (~100m ≈ 0.001 deg)
-            buffer = 0.002
+            # Buffer based on number of parcels and total area
+            total_area = sum(p.area_m2 for p in lv_data.parcels if p.area_m2)
+            # ~sqrt(area) meters → degrees (1 deg ≈ 111km)
+            buffer = max(0.002, (total_area ** 0.5) / 111000 * 1.5)
             bbox = [
                 min(lons) - buffer,  # minlon
                 min(lats) - buffer,  # minlat
