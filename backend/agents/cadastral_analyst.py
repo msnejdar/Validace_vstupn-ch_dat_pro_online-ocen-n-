@@ -379,16 +379,21 @@ class CadastralAnalystAgent(BaseAgent):
                 # 3) Compose: ortofoto + cadastral overlay
                 ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
 
-                if km_resp.status_code == 200 and km_resp.headers.get("content-type", "").startswith("image"):
-                    km_img = Image.open(io.BytesIO(km_resp.content)).convert("RGBA")
-                    # Resize cadastral overlay to match ortofoto if needed
-                    if km_img.size != ortho_img.size:
-                        km_img = km_img.resize(ortho_img.size, Image.LANCZOS)
-                    # Composite
-                    ortho_img = Image.alpha_composite(ortho_img, km_img)
-                    self.log("Katastrální mapa překryta přes ortofoto")
-                else:
-                    self.log(f"Katastrální mapa nedostupná (status {km_resp.status_code})", "warn")
+                try:
+                    self.log(f"KM overlay: status={km_resp.status_code}, "
+                             f"ct={km_resp.headers.get('content-type', '?')}, "
+                             f"len={len(km_resp.content)}B")
+                    if km_resp.status_code == 200 and km_resp.headers.get("content-type", "").startswith("image"):
+                        km_img = Image.open(io.BytesIO(km_resp.content)).convert("RGBA")
+                        self.log(f"KM img: mode={km_img.mode}, size={km_img.size}")
+                        if km_img.size != ortho_img.size:
+                            km_img = km_img.resize(ortho_img.size, Image.LANCZOS)
+                        ortho_img = Image.alpha_composite(ortho_img, km_img)
+                        self.log("✓ Katastrální mapa překryta přes ortofoto")
+                    else:
+                        self.log(f"Katastrální mapa nedostupná (status {km_resp.status_code})", "warn")
+                except Exception as e:
+                    self.log(f"Chyba překrytí KM: {e}", "warn")
 
                 # Save combined image
                 final_img = ortho_img.convert("RGB")
