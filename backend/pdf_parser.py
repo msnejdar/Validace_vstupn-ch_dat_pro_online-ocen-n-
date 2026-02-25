@@ -63,6 +63,10 @@ _KNOWN_LABELS = [
     r"P[řr][ií]pojka\s+plyn", r"P[řr][ií]pojka\s+elektro",
 ]
 
+_LABEL_START_RE = re.compile(
+    r"^(?:" + "|".join(_KNOWN_LABELS) + r")", re.IGNORECASE
+)
+
 _LABEL_BOUNDARY_RE = re.compile(
     r"\s+(?=" + "|".join(_KNOWN_LABELS) + r")", re.IGNORECASE
 )
@@ -74,7 +78,13 @@ def _truncate_at_next_label(value: str) -> str:
     In the new table format, pdfplumber often places two columns on one line:
       'Typ střechy: sedlová Typ konstrukce: jiná'
     This function returns 'sedlová' by cutting at the next recognized label.
+    Also handles cases where the value ITSELF starts with a label (e.g. when
+    pdfplumber merges labels from two columns and the actual value is elsewhere).
     """
+    # If value starts with a known label, it's garbage from the next column
+    if _LABEL_START_RE.match(value):
+        return ""
+    # Otherwise cut at first label boundary within the value
     m = _LABEL_BOUNDARY_RE.search(value)
     if m:
         return value[:m.start()].strip()
@@ -189,6 +199,11 @@ def parse_pdf(pdf_bytes: bytes) -> PropertyData:
                 full_text += page_text + "\n"
 
             tables = page.extract_tables()
+            # If no tables detected with default (line-based), try text-based
+            if not tables:
+                tables = page.extract_tables(
+                    table_settings={"vertical_strategy": "text", "horizontal_strategy": "text"}
+                )
             for table in tables:
                 for row in table:
                     if not row:
@@ -237,7 +252,22 @@ def parse_pdf(pdf_bytes: bytes) -> PropertyData:
                 value = _truncate_at_next_label(value)
                 if value:
                     setattr(data, field_name, value)
-                break
+                    break
+
+                # Value was empty after truncation (e.g. "Typ vytápění: Voda: ...")
+                # The actual value is likely on the NEXT line (multi-line table cell).
+                # Find which cleaned line the match was on, then check the next one.
+                match_pos = match.start()
+                lines_before = full_cleaned[:match_pos].count("\n")
+                next_line_idx = lines_before + 1
+                if next_line_idx < len(cleaned_lines):
+                    next_val = cleaned_lines[next_line_idx].strip()
+                    # Only use if it's NOT a known label itself
+                    if next_val and not _LABEL_START_RE.match(next_val):
+                        next_val = _truncate_at_next_label(next_val)
+                        if next_val:
+                            setattr(data, field_name, next_val)
+                            break
 
     # Post-process: try to extract year from stavba_dokoncena if it's a full sentence
     if data.stavba_dokoncena:
