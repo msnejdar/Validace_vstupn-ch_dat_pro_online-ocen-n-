@@ -6,6 +6,7 @@
 - Downloads ortofoto from ČÚZK WMS
 - AI analysis of ortofoto for unregistered buildings/extensions
 """
+import io
 import json
 import os
 import httpx
@@ -336,37 +337,65 @@ class CadastralAnalystAgent(BaseAgent):
 
     # ─── Ortofoto download ──────────────────────────────────────────────
     async def _download_ortofoto(self, bbox: list, session_id: str) -> tuple[str | None, str | None]:
-        """Download ortofoto from ČÚZK WMS for the given bounding box."""
+        """Download ortofoto + cadastral parcel overlay from ČÚZK WMS."""
+        CUZK_WMS_KM = "https://services.cuzk.gov.cz/wms/local-km-wms.asp"
+
         try:
-            # WMS GetMap request — EPSG:4326 (WGS84)
-            params = {
-                "SERVICE": "WMS",
-                "VERSION": "1.3.0",
-                "REQUEST": "GetMap",
-                "LAYERS": "0",
-                "CRS": "EPSG:4326",
-                "BBOX": f"{bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]}",  # lat,lon order for WMS 1.3.0
-                "WIDTH": "1024",
-                "HEIGHT": "1024",
-                "FORMAT": "image/jpeg",
-                "STYLES": "",
-            }
+            session_dir = os.path.join(UPLOAD_DIR, session_id)
+            os.makedirs(session_dir, exist_ok=True)
 
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.get(CUZK_WMS_ORTOFOTO, params=params)
+            # WMS 1.3.0 uses lat,lon for EPSG:4326
+            wms_bbox = f"{bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]}"
 
-                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image"):
-                    session_dir = os.path.join(UPLOAD_DIR, session_id)
-                    os.makedirs(session_dir, exist_ok=True)
-                    ortofoto_path = os.path.join(session_dir, "ortofoto_cuzk.jpg")
-                    with open(ortofoto_path, "wb") as f:
-                        f.write(resp.content)
-                    ortofoto_url = f"/uploads/{session_id}/ortofoto_cuzk.jpg"
-                    self.log(f"Ortofoto staženo ({len(resp.content)} B)")
-                    return ortofoto_path, ortofoto_url
-                else:
-                    self.log(f"Ortofoto nedostupné (status {resp.status_code})", "warn")
+            async with httpx.AsyncClient(timeout=25) as client:
+                # 1) Download ortofoto (satellite image)
+                ortho_params = {
+                    "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
+                    "LAYERS": "0", "CRS": "EPSG:4326",
+                    "BBOX": wms_bbox,
+                    "WIDTH": "1024", "HEIGHT": "1024",
+                    "FORMAT": "image/jpeg", "STYLES": "",
+                }
+                ortho_resp = await client.get(CUZK_WMS_ORTOFOTO, params=ortho_params)
+
+                if ortho_resp.status_code != 200 or not ortho_resp.headers.get("content-type", "").startswith("image"):
+                    self.log(f"Ortofoto nedostupné (status {ortho_resp.status_code})", "warn")
                     return None, None
+
+                self.log(f"Ortofoto staženo ({len(ortho_resp.content)} B)")
+
+                # 2) Download cadastral map overlay (parcel boundaries)
+                km_params = {
+                    "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
+                    "LAYERS": "hranice_parcel_barevne,obrazy_parcel,cisla_parcel",
+                    "CRS": "EPSG:4326",
+                    "BBOX": wms_bbox,
+                    "WIDTH": "1024", "HEIGHT": "1024",
+                    "FORMAT": "image/png", "STYLES": "",
+                    "TRANSPARENT": "TRUE",
+                }
+                km_resp = await client.get(CUZK_WMS_KM, params=km_params)
+
+                # 3) Compose: ortofoto + cadastral overlay
+                ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
+
+                if km_resp.status_code == 200 and km_resp.headers.get("content-type", "").startswith("image"):
+                    km_img = Image.open(io.BytesIO(km_resp.content)).convert("RGBA")
+                    # Resize cadastral overlay to match ortofoto if needed
+                    if km_img.size != ortho_img.size:
+                        km_img = km_img.resize(ortho_img.size, Image.LANCZOS)
+                    # Composite
+                    ortho_img = Image.alpha_composite(ortho_img, km_img)
+                    self.log("Katastrální mapa překryta přes ortofoto")
+                else:
+                    self.log(f"Katastrální mapa nedostupná (status {km_resp.status_code})", "warn")
+
+                # Save combined image
+                final_img = ortho_img.convert("RGB")
+                ortofoto_path = os.path.join(session_dir, "ortofoto_cuzk.jpg")
+                final_img.save(ortofoto_path, "JPEG", quality=90)
+                ortofoto_url = f"/uploads/{session_id}/ortofoto_cuzk.jpg"
+                return ortofoto_path, ortofoto_url
 
         except Exception as e:
             self.log(f"Chyba stahování ortofota: {e}", "warn")
