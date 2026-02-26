@@ -8,7 +8,7 @@ for RD (rodinný dům) property valuation:
    - Interiér všech místností (kuchyň, pokoje, koupelna, chodba a další)
    - Vedlejší stavby (garáž, stodola apod.) — POUZE pokud existují
 
-2) Dokumentace půdorysů jednotlivých podlaží a řezů (pokud je k dispozici)
+2) Dokumentace půdorysů (nepovinné, bonus pokud je k dispozici)
 """
 import json
 from google import genai
@@ -28,6 +28,8 @@ POVINNÁ FOTODOKUMENTACE:
    c) VEDLEJŠÍ STAVBY — garáž, stodola, dílna, kůlna apod.
       Vedlejší stavby se fotí POUZE pokud na pozemku existují.
       Pokud na žádné fotce ani z exteriéru nevidíš vedlejší stavby, nepovažuj to za chybu.
+
+   POZNÁMKA: Půdorysy/projektová dokumentace NEJSOU povinné. Pokud jsou přiloženy, klasifikuj je jako PUDORYS, ale jejich absence není chyba.
 
 2) Dokumentace půdorysů — projektová dokumentace, studie, půdorysy s rozměry
    (nemusí být fotografie, může to být PDF s technickými výkresy)
