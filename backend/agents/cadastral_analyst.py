@@ -187,7 +187,8 @@ class CadastralAnalystAgent(BaseAgent):
             if not center:
                 center = ((bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2)
             ortofoto_path, ortofoto_url = await self._download_ortofoto(
-                bbox, session_id, center_coords=center
+                bbox, session_id, center_coords=center,
+                num_parcels=len(lv_data.parcels) if lv_data and lv_data.parcels else 1,
             )
 
         # ── Step 5: AI analysis of ortofoto ──
@@ -348,12 +349,13 @@ class CadastralAnalystAgent(BaseAgent):
 
     # ─── Ortofoto download ──────────────────────────────────────────────
     async def _download_ortofoto(self, bbox: list, session_id: str,
-                                  center_coords: tuple = None) -> tuple[str | None, str | None]:
+                                  center_coords: tuple = None,
+                                  num_parcels: int = 1) -> tuple[str | None, str | None]:
         """Download ortofoto + katastr-style overlay (yellow lines, cyan parcel fill).
 
         Layers composited:
         1. Ortofoto (satellite image)
-        2. Cyan semi-transparent fill for the property parcel (flood-fill)
+        2. Cyan semi-transparent fill for property parcels (flood-fill + neighbors)
         3. Yellow parcel boundaries + parcel numbers (katastr style)
         """
         CUZK_WMS_KM = "https://services.cuzk.gov.cz/wms/local-km-wms.asp"
@@ -401,7 +403,7 @@ class CadastralAnalystAgent(BaseAgent):
 
             ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
 
-            # ── Flood-fill parcel highlighting ──
+            # ── Flood-fill parcel highlighting (center + neighbors) ──
             if center_coords and boundary_resp.status_code == 200 and \
                boundary_resp.headers.get("content-type", "").startswith("image"):
                 try:
@@ -409,12 +411,10 @@ class CadastralAnalystAgent(BaseAgent):
                     bnd_img = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
                     bnd_small = bnd_img.resize((FILL_SIZE, FILL_SIZE), Image.LANCZOS)
 
-                    # Binary mask from alpha: 255=interior, 0=boundary
                     alpha = bnd_small.split()[3]
                     mask = alpha.point(lambda p: 0 if p > 30 else 255)
                     del alpha, bnd_small
 
-                    # Seed point
                     cx = int((lon - bbox[0]) / (bbox[2] - bbox[0]) * FILL_SIZE)
                     cy = int((bbox[3] - lat) / (bbox[3] - bbox[1]) * FILL_SIZE)
                     cx = max(0, min(cx, FILL_SIZE - 1))
@@ -435,10 +435,41 @@ class CadastralAnalystAgent(BaseAgent):
                         if seed:
                             break
 
-                    if seed:
-                        ImageDraw.floodfill(mask, seed, 128, thresh=50)
+                    FILL_VAL = 128
+                    filled_count = 0
 
-                        fill_alpha = mask.point(lambda p: 80 if p == 128 else 0)
+                    if seed:
+                        ImageDraw.floodfill(mask, seed, FILL_VAL, thresh=50)
+                        filled_count = 1
+
+                        # Neighbor expansion: fill adjacent parcels
+                        if num_parcels > 1:
+                            JUMP = 6
+                            mask_data = mask.load()
+                            neighbor_grid = {}
+                            for x in range(FILL_SIZE):
+                                for y in range(FILL_SIZE):
+                                    if mask_data[x, y] == FILL_VAL:
+                                        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                                            nx, ny = x + dx, y + dy
+                                            if 0 <= nx < FILL_SIZE and 0 <= ny < FILL_SIZE and mask_data[nx, ny] == 0:
+                                                for jmp in range(JUMP, JUMP + 6, 2):
+                                                    jx, jy = x + dx * jmp, y + dy * jmp
+                                                    if 0 <= jx < FILL_SIZE and 0 <= jy < FILL_SIZE and mask_data[jx, jy] == 255:
+                                                        gk = (jx // 16, jy // 16)
+                                                        if gk not in neighbor_grid:
+                                                            neighbor_grid[gk] = [jx, jy, 0]
+                                                        neighbor_grid[gk][2] += 1
+                                                        break
+
+                            sorted_neighbors = sorted(neighbor_grid.values(), key=lambda v: v[2], reverse=True)
+                            for sx, sy, _ in sorted_neighbors[:num_parcels - 1]:
+                                mask_data = mask.load()
+                                if mask_data[sx, sy] == 255:
+                                    ImageDraw.floodfill(mask, (sx, sy), FILL_VAL, thresh=50)
+                                    filled_count += 1
+
+                        fill_alpha = mask.point(lambda p: 80 if p == FILL_VAL else 0)
                         fill_alpha = fill_alpha.resize(ortho_img.size, Image.LANCZOS)
                         del mask
 
@@ -448,7 +479,7 @@ class CadastralAnalystAgent(BaseAgent):
 
                         ortho_img = Image.alpha_composite(ortho_img, cyan)
                         del cyan
-                        self.log(f"✓ Parcela zvýrazněna (seed={seed})")
+                        self.log(f"✓ {filled_count} parcel zvýrazněno (z {num_parcels} vybraných)")
                     else:
                         del mask
                         self.log("Seed pro flood-fill nenalezen", "warn")
