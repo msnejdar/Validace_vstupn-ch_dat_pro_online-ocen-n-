@@ -401,33 +401,38 @@ class CadastralAnalystAgent(BaseAgent):
             # Build the composite image
             ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
 
-            # Flood-fill parcel highlighting
+            # Flood-fill parcel highlighting (at reduced resolution to save memory)
+            FILL_SIZE = 512  # Reduced resolution for flood-fill processing
             if center_coords and boundary_resp.status_code == 200 and \
                boundary_resp.headers.get("content-type", "").startswith("image"):
                 try:
                     lat, lon = center_coords
                     boundary_img = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
-                    if boundary_img.size != ortho_img.size:
-                        boundary_img = boundary_img.resize(ortho_img.size, Image.LANCZOS)
+                    boundary_small = boundary_img.resize((FILL_SIZE, FILL_SIZE), Image.LANCZOS)
+                    # Free original
+                    del boundary_img
 
-                    bnd_data = boundary_img.load()
+                    # Extract alpha channel as boundary mask
+                    alpha = boundary_small.split()[3]
+                    # Binary mask: 255 = interior, 0 = boundary (alpha > 30)
+                    mask = alpha.point(lambda p: 0 if p > 30 else 255)
+                    del alpha, boundary_small
 
-                    # Convert geo coords to pixel coords
-                    cx = int((lon - bbox[0]) / (bbox[2] - bbox[0]) * IMG_SIZE)
-                    cy = int((bbox[3] - lat) / (bbox[3] - bbox[1]) * IMG_SIZE)
-                    cx = max(0, min(cx, IMG_SIZE - 1))
-                    cy = max(0, min(cy, IMG_SIZE - 1))
+                    # Seed point in reduced coordinates
+                    cx = int((lon - bbox[0]) / (bbox[2] - bbox[0]) * FILL_SIZE)
+                    cy = int((bbox[3] - lat) / (bbox[3] - bbox[1]) * FILL_SIZE)
+                    cx = max(0, min(cx, FILL_SIZE - 1))
+                    cy = max(0, min(cy, FILL_SIZE - 1))
 
-                    # Find seed point: spiral from center to find non-boundary pixel
+                    # Find non-boundary seed point (spiral search)
+                    mask_data = mask.load()
                     seed = None
                     for r in range(0, 60):
                         for dx in range(-r, r + 1):
-                            for dy in range(-r, r + 1):
-                                if abs(dx) != r and abs(dy) != r:
-                                    continue
+                            for dy in [-r, r] if abs(dx) < r else range(-r, r + 1):
                                 px, py = cx + dx, cy + dy
-                                if 0 <= px < IMG_SIZE and 0 <= py < IMG_SIZE:
-                                    if bnd_data[px, py][3] < 50:
+                                if 0 <= px < FILL_SIZE and 0 <= py < FILL_SIZE:
+                                    if mask_data[px, py] == 255:
                                         seed = (px, py)
                                         break
                             if seed:
@@ -436,30 +441,26 @@ class CadastralAnalystAgent(BaseAgent):
                             break
 
                     if seed:
-                        # Create binary mask from boundaries
-                        mask = Image.new("L", ortho_img.size, 255)
-                        mask_data = mask.load()
-                        for x in range(IMG_SIZE):
-                            for y in range(IMG_SIZE):
-                                if bnd_data[x, y][3] > 30:
-                                    mask_data[x, y] = 0
-
-                        # Flood fill from seed
+                        # Flood fill: mark interior as 128
                         ImageDraw.floodfill(mask, seed, 128, thresh=50)
 
-                        # Create cyan overlay from filled area
-                        overlay = Image.new("RGBA", ortho_img.size, (0, 0, 0, 0))
-                        ov_data = overlay.load()
-                        filled = 0
-                        for x in range(IMG_SIZE):
-                            for y in range(IMG_SIZE):
-                                if mask_data[x, y] == 128:
-                                    ov_data[x, y] = (0, 255, 255, 80)
-                                    filled += 1
+                        # Create cyan overlay: where mask == 128, put cyan
+                        # Use point() to create alpha channel for overlay
+                        fill_alpha = mask.point(lambda p: 80 if p == 128 else 0)
+                        # Upscale to original ortofoto size
+                        fill_alpha = fill_alpha.resize(ortho_img.size, Image.LANCZOS)
+                        del mask
 
-                        ortho_img = Image.alpha_composite(ortho_img, overlay)
-                        self.log(f"✓ Parcela zvýrazněna ({filled} px, seed={seed})")
+                        # Create the cyan overlay using the alpha mask
+                        cyan = Image.new("RGBA", ortho_img.size, (0, 255, 255, 0))
+                        cyan.putalpha(fill_alpha)
+                        del fill_alpha
+
+                        ortho_img = Image.alpha_composite(ortho_img, cyan)
+                        del cyan
+                        self.log(f"✓ Parcela zvýrazněna (seed={seed})")
                     else:
+                        del mask
                         self.log("Seed point pro flood-fill nenalezen", "warn")
 
                 except Exception as e:
