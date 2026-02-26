@@ -11,6 +11,7 @@ import base64
 import json
 import math
 import os
+from datetime import datetime, timedelta
 import httpx
 
 from google import genai
@@ -71,6 +72,42 @@ Vrať POUZE JSON:
   "reason": "Krátké zdůvodnění výběru"
 }
 """
+
+SEASON_ESTIMATION_PROMPT = """Jsi expert na analýzu fotografií nemovitostí. Tvým úkolem je ODHADNOUT ROČNÍ OBDOBÍ,
+ve kterém byly fotografie pořízeny.
+
+Fotodokumentace nesmí být starší než 3 měsíce. EXIF metadata nebyla dostupná, proto odhadni roční období
+z vizuálních indicií na fotografiích.
+
+POSUZUJ TYTO INDIKÁTORY:
+1. **Vegetace** — zelené listy = léto, žluté/oranžové = podzim, holé stromy = zima, pupeny/květy = jaro
+2. **Sníh** — na střechách, na zemi, na cestách
+3. **Světlo** — délka stínů, intenzita slunce, šedivá obloha
+4. **Tráva** — zelená a svěží = léto, hnědá/suchá = pozdní léto/podzim, zamrzlá = zima
+5. **Oblečení lidí** (pokud jsou vidět) — bundy/čepice = zima, trička = léto
+6. **Stav zahrady** — aktivní zahrada = léto, připravená na zimu = podzim
+7. **Bazén** — napuštěný = léto, zakrytý/prázdný = mimo sezónu
+
+Vrať POUZE JSON:
+{
+  "estimated_season": "jaro" | "léto" | "podzim" | "zima",
+  "estimated_month_range": "březen-květen" | "červen-srpen" | "září-listopad" | "prosinec-únor",
+  "confidence": 0.0-1.0,
+  "reasoning": "Popis indicií: co tě vedlo k odhadu (vegetace, sníh, světlo...)",
+  "freshness_concern": true/false,
+  "freshness_note": "Pokud máš podezření, že fotky jsou starší než 3 měsíce, vysvětli proč"
+}
+"""
+
+# Season to month mapping
+SEASON_MONTHS = {
+    "jaro": [3, 4, 5],
+    "léto": [6, 7, 8],
+    "podzim": [9, 10, 11],
+    "zima": [12, 1, 2],
+}
+
+MAX_PHOTO_AGE_DAYS = 90  # 3 months
 
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -151,9 +188,12 @@ class GeoValidatorAgent(BaseAgent):
                 warnings=["Nebyla zadána adresa ani souřadnice nemovitosti."],
             )
 
-        # ── Step 2: Collect GPS from photos ────────────────────────────
+        # ── Step 2: Collect GPS + dates from photos ─────────────────────
         photos_with_gps = []
         photos_without_gps = []
+        photo_dates = []  # dates extracted from EXIF
+
+        now = datetime.now()
 
         for img in images:
             meta = img.get("metadata", {})
@@ -169,7 +209,21 @@ class GeoValidatorAgent(BaseAgent):
             else:
                 photos_without_gps.append(img["id"])
 
-        self.log(f"Fotek s GPS: {len(photos_with_gps)}, bez GPS: {len(photos_without_gps)}")
+            # Extract date from EXIF
+            date_str = meta.get("date_taken") or meta.get("datetime_original") or meta.get("date")
+            if date_str:
+                try:
+                    for fmt in ["%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]:
+                        try:
+                            dt = datetime.strptime(str(date_str), fmt)
+                            photo_dates.append({"photo_id": img["id"], "date": dt})
+                            break
+                        except ValueError:
+                            continue
+                except Exception:
+                    pass
+
+        self.log(f"Fotek s GPS: {len(photos_with_gps)}, bez GPS: {len(photos_without_gps)}, s datem: {len(photo_dates)}")
 
         # ── Step 3: Distance calculation + reverse geocoding ───────────
         self.log("Měřím vzdálenosti a identifikuji lokace fotek...", "thinking")
@@ -298,7 +352,70 @@ class GeoValidatorAgent(BaseAgent):
                 front_photo_path, panorama_path, front_photo_id,
             )
 
-        # ── Step 6: Determine final status ─────────────────────────────
+        # ── Step 6: Check photo freshness (max 3 months) ────────────────
+        freshness_result = None
+        stale_photos = []
+
+        if photo_dates:
+            for pd in photo_dates:
+                age = (now - pd["date"]).days
+                if age > MAX_PHOTO_AGE_DAYS:
+                    stale_photos.append({
+                        "photo_id": pd["photo_id"],
+                        "date": pd["date"].strftime("%Y-%m-%d"),
+                        "age_days": age,
+                    })
+            if stale_photos:
+                stale_ids = ", ".join([s["photo_id"] for s in stale_photos[:5]])
+                errors.append(
+                    f"Fotodokumentace starší než 3 měsíce: {stale_ids}. "
+                    f"Fotky musí být aktuální (max {MAX_PHOTO_AGE_DAYS} dní)."
+                )
+                self.log(f"FAIL: {len(stale_photos)} fotek starších než 3 měsíce!", "error")
+            else:
+                oldest = min(pd["date"] for pd in photo_dates)
+                self.log(f"Nejstarší fotka: {oldest.strftime('%Y-%m-%d')} ({(now - oldest).days} dní) ✓")
+
+        # ── Step 7: AI season estimation (fallback if <4 photos have EXIF date) ──
+        if len(photo_dates) < 4 and self.client and images:
+            self.log(
+                f"Pouze {len(photo_dates)} fotek má EXIF datum (minimum 4). "
+                "Odhaduji roční období z vizuálních indicií...",
+                "thinking",
+            )
+            freshness_result = await self._estimate_season(images)
+
+            if freshness_result:
+                estimated = freshness_result.get("estimated_season", "")
+                confidence = freshness_result.get("confidence", 0)
+                reasoning = freshness_result.get("reasoning", "")
+                self.log(f"Odhad ročního období: {estimated} (confidence: {confidence:.0%})")
+                self.log(f"Indicie: {reasoning}")
+
+                # Check if estimated season is within 3 months of now
+                current_month = now.month
+                if estimated in SEASON_MONTHS:
+                    season_months = SEASON_MONTHS[estimated]
+                    # Check if current month is within ±3 months of the season
+                    min_diff = min(
+                        min(abs(current_month - m), 12 - abs(current_month - m))
+                        for m in season_months
+                    )
+                    if min_diff > 3:
+                        warnings.append(
+                            f"AI odhad ročního období: {estimated} – neshoduje se s aktuálním obdobím. "
+                            f"Fotodokumentace může být starší než 3 měsíce. ({reasoning})"
+                        )
+                    else:
+                        self.log(f"Roční období '{estimated}' odpovídá aktuálnímu období ✓")
+
+                if freshness_result.get("freshness_concern"):
+                    note = freshness_result.get("freshness_note", "")
+                    warnings.append(
+                        f"AI podezření na stáří fotek: {note}"
+                    )
+
+        # ── Step 8: Determine final status ─────────────────────────────
         if len(photos_without_gps) > len(photos_with_gps):
             warnings.append(f"Většina fotek ({len(photos_without_gps)}/{len(images)}) nemá GPS metadata.")
 
@@ -345,6 +462,10 @@ class GeoValidatorAgent(BaseAgent):
                 "panorama_url": panorama_url,
                 "front_photo_id": front_photo_id,
                 "visual_comparison": visual_comparison,
+                # Freshness data
+                "photo_dates": [{"photo_id": pd["photo_id"], "date": pd["date"].strftime("%Y-%m-%d")} for pd in photo_dates],
+                "stale_photos": stale_photos,
+                "season_estimation": freshness_result,
             },
             warnings=warnings,
             errors=errors,
@@ -456,4 +577,40 @@ class GeoValidatorAgent(BaseAgent):
 
         except Exception as e:
             self.log(f"Chyba vizuálního porovnání: {e}", "warn")
+            return None
+
+    # ─── Season estimation from visual cues ────────────────────────────
+    async def _estimate_season(self, images: list) -> dict | None:
+        """Estimate season from photo content when EXIF dates are missing."""
+        try:
+            # Send up to 6 photos (prefer exterior)
+            photos_to_send = images[:6]
+            parts = [
+                f"Odhadni roční období z těchto {len(photos_to_send)} fotografií rodinného domu.\n"
+                f"Dnešní datum: {datetime.now().strftime('%d.%m.%Y')}.\n\n"
+            ]
+
+            for img in photos_to_send:
+                try:
+                    with open(img["processed_path"], "rb") as f:
+                        image_bytes = f.read()
+                    parts.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
+                    parts.append(f"Photo: {img['id']}\n")
+                except Exception:
+                    continue
+
+            response = await self.client.aio.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    system_instruction=SEASON_ESTIMATION_PROMPT,
+                    response_mime_type="application/json",
+                    max_output_tokens=800,
+                ),
+            )
+
+            return json.loads(response.text)
+
+        except Exception as e:
+            self.log(f"Chyba odhadu ročního období: {e}", "warn")
             return None
