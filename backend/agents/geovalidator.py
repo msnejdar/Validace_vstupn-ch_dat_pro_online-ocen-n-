@@ -583,8 +583,8 @@ class GeoValidatorAgent(BaseAgent):
     async def _estimate_season(self, images: list) -> dict | None:
         """Estimate season from photo content when EXIF dates are missing."""
         try:
-            # Send up to 6 photos (prefer exterior)
-            photos_to_send = images[:6]
+            # POUZE 3 nejlepší fotky (kvůli OOM Render limitům - 512MB RAM)
+            photos_to_send = images[:3]
             parts = [
                 f"Odhadni roční období z těchto {len(photos_to_send)} fotografií rodinného domu.\n"
                 f"Dnešní datum: {datetime.now().strftime('%d.%m.%Y')}.\n\n"
