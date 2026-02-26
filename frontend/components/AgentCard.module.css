@@ -2,52 +2,51 @@
     position: absolute;
     width: 160px;
     min-height: 100px;
-    background: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: 14px;
     cursor: pointer;
     transition: all 0.3s ease;
     z-index: 2;
     animation: fade-in 0.4s ease;
+    box-shadow: var(--shadow-card);
 }
 
 .card:hover {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--border-hover);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-card-hover);
 }
 
 .selected {
     border-color: var(--agent-color) !important;
-    box-shadow: 0 0 16px var(--agent-color-glow) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent-color) 15%, transparent) !important;
 }
 
 /* Status styles */
 .status_processing {
     border-color: var(--accent-blue);
     animation: pulse-border 2s ease-in-out infinite;
-    background: rgba(30, 111, 217, 0.06);
+    background: var(--accent-blue-light);
 }
 
 .status_success {
-    border-color: rgba(5, 150, 105, 0.5);
-    background: rgba(5, 150, 105, 0.04);
+    border-color: rgba(5, 150, 105, 0.4);
+    background: var(--accent-green-light);
 }
 
 .status_fail {
-    border-color: rgba(220, 38, 38, 0.5);
-    background: rgba(220, 38, 38, 0.04);
+    border-color: rgba(220, 38, 38, 0.4);
+    background: var(--accent-red-light);
 }
 
 .status_warn {
-    border-color: rgba(217, 119, 6, 0.5);
-    background: rgba(217, 119, 6, 0.04);
+    border-color: rgba(217, 119, 6, 0.4);
+    background: var(--accent-orange-light);
 }
 
-/* Processing ring – animated border */
+/* Processing ring */
 .processingRing {
     position: absolute;
     top: -2px;
@@ -56,8 +55,8 @@
     bottom: -2px;
     border-radius: var(--radius-lg);
     border: 2px solid transparent;
-    border-top-color: var(--accent-blue-light);
-    border-right-color: rgba(74, 158, 255, 0.3);
+    border-top-color: var(--accent-blue);
+    border-right-color: rgba(40, 112, 237, 0.3);
     animation: rotate-ring 1.2s linear infinite;
     pointer-events: none;
 }
@@ -119,7 +118,7 @@
 .processingBar {
     width: 100%;
     height: 3px;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(40, 112, 237, 0.1);
     border-radius: 2px;
     overflow: hidden;
     margin-bottom: 6px;
@@ -128,14 +127,14 @@
 .processingFill {
     width: 40%;
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-blue), var(--accent-blue-light));
+    background: linear-gradient(90deg, var(--accent-blue), #5A9AFF);
     border-radius: 2px;
     animation: processing-sweep 1.5s ease-in-out infinite;
 }
 
 .processingLabel {
     font-size: 10px;
-    color: var(--accent-blue-light);
+    color: var(--accent-blue);
     font-weight: 600;
     letter-spacing: 0.3px;
 }
@@ -149,7 +148,7 @@
 .logPreview {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-color);
     font-size: 10px;
     color: var(--text-muted);
     display: flex;
@@ -164,7 +163,7 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: var(--accent-blue-light);
+    background: var(--accent-blue);
     flex-shrink: 0;
     animation: pulse-dot 1s ease-in-out infinite;
 }

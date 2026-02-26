@@ -1,49 +1,51 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Banking Color Palette – inspired by ČS / professional banking */
-  --bg-primary: #0b1628;
-  --bg-secondary: #0f1d32;
-  --bg-card: rgba(15, 29, 50, 0.85);
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --bg-glass-hover: rgba(255, 255, 255, 0.07);
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --border-glass-active: rgba(255, 255, 255, 0.16);
+  /* ČS (Česká spořitelna) Color Palette – Light Theme */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F4F6FA;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F8FAFC;
+  --bg-subtle: #F0F3F8;
+  --border-color: #E2E8F0;
+  --border-hover: #CBD5E1;
+  --border-focus: #2870ED;
 
-  --text-primary: #e8ecf4;
-  --text-secondary: #8fa3bf;
-  --text-muted: #5a7394;
+  --text-primary: #1A1A1A;
+  --text-secondary: #5F6368;
+  --text-muted: #90A0B2;
 
-  /* Banking accents */
-  --accent-blue: #1e6fd9;
-  --accent-blue-glow: rgba(30, 111, 217, 0.25);
-  --accent-blue-light: #4a9eff;
-  --accent-navy: #0d3b78;
-  --accent-purple: #6366f1;
-  --accent-purple-glow: rgba(99, 102, 241, 0.25);
+  /* ČS Brand accents */
+  --accent-blue: #2870ED;
+  --accent-blue-hover: #1A5FD9;
+  --accent-blue-light: #E8F0FE;
+  --accent-blue-glow: rgba(40, 112, 237, 0.15);
+  --accent-navy: #0D3B78;
+  --accent-purple: #671E75;
   --accent-green: #059669;
-  --accent-green-glow: rgba(5, 150, 105, 0.25);
-  --accent-orange: #d97706;
-  --accent-orange-glow: rgba(217, 119, 6, 0.25);
-  --accent-red: #dc2626;
-  --accent-red-glow: rgba(220, 38, 38, 0.25);
-  --accent-cyan: #0891b2;
-  --accent-gold: #b8860b;
+  --accent-green-light: #ECFDF5;
+  --accent-green-glow: rgba(5, 150, 105, 0.12);
+  --accent-orange: #D97706;
+  --accent-orange-light: #FFFBEB;
+  --accent-orange-glow: rgba(217, 119, 6, 0.12);
+  --accent-red: #DC2626;
+  --accent-red-light: #FEF2F2;
+  --accent-red-glow: rgba(220, 38, 38, 0.12);
+  --accent-cyan: #0891B2;
 
-  /* Spacing */
+  /* Spacing & Radius */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 128px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-glow-blue: 0 0 24px rgba(30, 111, 217, 0.12);
-  --shadow-glow-green: 0 0 24px rgba(5, 150, 105, 0.12);
-  --shadow-glow-red: 0 0 24px rgba(220, 38, 38, 0.12);
-  --shadow-glow-orange: 0 0 24px rgba(217, 119, 6, 0.12);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 14px rgba(11, 31, 66, 0.08);
+  --shadow-lg: 0 8px 24px rgba(11, 31, 66, 0.12);
+  --shadow-card: 0 2px 8px rgba(11, 31, 66, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(11, 31, 66, 0.1);
 }
 
 * {
@@ -55,41 +57,11 @@
 html,
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(ellipse at 15% 30%, rgba(30, 111, 217, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 85% 70%, rgba(13, 59, 120, 0.05) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Glass card */
-.glass-card {
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-lg);
-  transition: all 0.3s ease;
-}
-
-.glass-card:hover {
-  background: var(--bg-glass-hover);
-  border-color: var(--border-glass-active);
-  box-shadow: var(--shadow-md);
 }
 
 /* Status colors */
@@ -98,7 +70,7 @@ body::before {
 }
 
 .status-processing {
-  color: var(--accent-blue-light);
+  color: var(--accent-blue);
 }
 
 .status-success {
@@ -125,7 +97,7 @@ body::before {
 }
 
 .status-dot.processing {
-  background: var(--accent-blue-light);
+  background: var(--accent-blue);
   animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
@@ -161,12 +133,12 @@ body::before {
   0%,
   100% {
     border-color: var(--accent-blue);
-    box-shadow: 0 0 16px rgba(30, 111, 217, 0.15);
+    box-shadow: 0 0 12px rgba(40, 112, 237, 0.1);
   }
 
   50% {
-    border-color: var(--accent-blue-light);
-    box-shadow: 0 0 24px rgba(74, 158, 255, 0.2);
+    border-color: #5A9AFF;
+    box-shadow: 0 0 20px rgba(40, 112, 237, 0.18);
   }
 }
 
@@ -256,29 +228,32 @@ body::before {
   }
 }
 
-/* Button styles */
+/* Button styles – ČS pill design */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: none;
+  border: 2px solid transparent;
   font-family: inherit;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-navy) 100%);
+  background: var(--accent-blue);
   color: white;
-  box-shadow: 0 2px 10px rgba(30, 111, 217, 0.25);
+  border-color: var(--accent-blue);
+  box-shadow: 0 2px 8px rgba(40, 112, 237, 0.25);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(30, 111, 217, 0.4);
+  background: var(--accent-blue-hover);
+  border-color: var(--accent-blue-hover);
+  box-shadow: 0 4px 16px rgba(40, 112, 237, 0.35);
   transform: translateY(-1px);
 }
 
@@ -289,22 +264,23 @@ body::before {
 }
 
 .btn-secondary {
-  background: var(--bg-glass);
+  background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-glass);
+  border: 2px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-glass-hover);
-  border-color: var(--border-glass-active);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: var(--accent-blue-light);
 }
 
 /* Input styles */
 .input-field {
   width: 100%;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-glass);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: inherit;
@@ -316,7 +292,6 @@ body::before {
   outline: none;
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px var(--accent-blue-glow);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .input-field::placeholder {
@@ -326,7 +301,7 @@ body::before {
 /* Select override */
 select.input-field {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%235a7394' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2390A0B2' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 12px center;
   background-repeat: no-repeat;
   background-size: 16px 16px;
@@ -334,7 +309,7 @@ select.input-field {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -342,12 +317,12 @@ select.input-field {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 /* Semaphore */
@@ -356,7 +331,7 @@ select.input-field {
   align-items: center;
   gap: 10px;
   padding: 8px 20px;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-pill);
   font-weight: 700;
   font-size: 16px;
   text-transform: uppercase;
@@ -364,22 +339,19 @@ select.input-field {
 }
 
 .semaphore.green {
-  background: rgba(5, 150, 105, 0.12);
+  background: var(--accent-green-light);
   color: var(--accent-green);
-  border: 1px solid rgba(5, 150, 105, 0.3);
-  box-shadow: var(--shadow-glow-green);
+  border: 1px solid rgba(5, 150, 105, 0.25);
 }
 
 .semaphore.orange {
-  background: rgba(217, 119, 6, 0.12);
+  background: var(--accent-orange-light);
   color: var(--accent-orange);
-  border: 1px solid rgba(217, 119, 6, 0.3);
-  box-shadow: var(--shadow-glow-orange);
+  border: 1px solid rgba(217, 119, 6, 0.25);
 }
 
 .semaphore.red {
-  background: rgba(220, 38, 38, 0.12);
+  background: var(--accent-red-light);
   color: var(--accent-red);
-  border: 1px solid rgba(220, 38, 38, 0.3);
-  box-shadow: var(--shadow-glow-red);
+  border: 1px solid rgba(220, 38, 38, 0.25);
 }

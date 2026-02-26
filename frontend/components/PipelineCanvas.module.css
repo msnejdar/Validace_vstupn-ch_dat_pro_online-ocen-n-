@@ -39,17 +39,18 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-xl);
+    padding: 8px 18px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
     font-size: 13px;
     color: var(--text-secondary);
+    box-shadow: var(--shadow-sm);
 }
 
 .progressCounter {
     font-weight: 700;
-    color: var(--accent-blue-light);
+    color: var(--accent-blue);
 }
 
 .progressTime {
@@ -62,11 +63,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 20px;
-    background: rgba(30, 111, 217, 0.08);
-    border: 1px solid rgba(30, 111, 217, 0.25);
-    border-radius: var(--radius-xl);
-    color: var(--accent-blue-light);
+    padding: 10px 22px;
+    background: var(--accent-blue-light);
+    border: 1px solid rgba(40, 112, 237, 0.2);
+    border-radius: var(--radius-pill);
+    color: var(--accent-blue);
     font-size: 13px;
     font-weight: 600;
 }
@@ -75,14 +76,14 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--accent-blue-light);
+    background: var(--accent-blue);
     animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
 /* ── Global Progress Bar ── */
 .globalProgress {
-    height: 3px;
-    background: rgba(255, 255, 255, 0.06);
+    height: 4px;
+    background: rgba(40, 112, 237, 0.1);
     border-radius: 2px;
     margin-bottom: 16px;
     overflow: hidden;
@@ -90,7 +91,7 @@
 
 .globalProgressFill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-blue), var(--accent-blue-light));
+    background: linear-gradient(90deg, var(--accent-blue), #5A9AFF);
     border-radius: 2px;
     transition: width 0.6s ease;
     position: relative;
@@ -103,7 +104,7 @@
     top: 0;
     bottom: 0;
     width: 40px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5));
     animation: shimmer 1.5s ease-in-out infinite;
 }
 
@@ -113,8 +114,8 @@
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
-    background: rgba(30, 111, 217, 0.06);
-    border: 1px solid rgba(30, 111, 217, 0.15);
+    background: var(--accent-blue-light);
+    border: 1px solid rgba(40, 112, 237, 0.15);
     border-radius: var(--radius-lg);
     margin-bottom: 16px;
     animation: fade-in 0.3s ease;
@@ -143,46 +144,48 @@
     align-items: center;
     gap: 14px;
     padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.25s ease;
     position: relative;
     overflow: hidden;
     animation: fade-in 0.4s ease both;
+    box-shadow: var(--shadow-sm);
 }
 
 .agentRow:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-1px);
 }
 
 .rowSelected {
     border-color: var(--agent-color) !important;
-    box-shadow: 0 0 12px color-mix(in srgb, var(--agent-color) 20%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent-color) 12%, transparent);
 }
 
 /* Status styles */
 .row_processing {
-    border-color: rgba(30, 111, 217, 0.3);
-    background: rgba(30, 111, 217, 0.04);
+    border-color: var(--accent-blue);
+    background: var(--accent-blue-light);
     animation: fade-in 0.4s ease both, pulse-border 2.5s ease-in-out infinite;
 }
 
 .row_success {
-    border-color: rgba(5, 150, 105, 0.25);
-    background: rgba(5, 150, 105, 0.03);
+    border-color: rgba(5, 150, 105, 0.3);
+    background: var(--accent-green-light);
 }
 
 .row_fail {
     border-color: rgba(220, 38, 38, 0.3);
-    background: rgba(220, 38, 38, 0.03);
+    background: var(--accent-red-light);
 }
 
 .row_warn {
-    border-color: rgba(217, 119, 6, 0.25);
-    background: rgba(217, 119, 6, 0.03);
+    border-color: rgba(217, 119, 6, 0.3);
+    background: var(--accent-orange-light);
 }
 
 /* Order column */
@@ -214,7 +217,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font-size: 17px;
     flex-shrink: 0;
 }
@@ -244,8 +247,8 @@
 .rowStatus {
     font-size: 12px;
     font-weight: 600;
-    padding: 4px 12px;
-    border-radius: var(--radius-xl);
+    padding: 4px 14px;
+    border-radius: var(--radius-pill);
     flex-shrink: 0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -253,27 +256,27 @@
 
 .status_idle {
     color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-secondary);
 }
 
 .status_processing {
-    color: var(--accent-blue-light);
-    background: rgba(30, 111, 217, 0.12);
+    color: var(--accent-blue);
+    background: var(--accent-blue-light);
 }
 
 .status_success {
     color: var(--accent-green);
-    background: rgba(5, 150, 105, 0.12);
+    background: var(--accent-green-light);
 }
 
 .status_fail {
     color: var(--accent-red);
-    background: rgba(220, 38, 38, 0.12);
+    background: var(--accent-red-light);
 }
 
 .status_warn {
     color: var(--accent-orange);
-    background: rgba(217, 119, 6, 0.12);
+    background: var(--accent-orange-light);
 }
 
 /* Processing bar at bottom of row */
@@ -282,8 +285,8 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 2px;
-    background: rgba(255, 255, 255, 0.04);
+    height: 3px;
+    background: rgba(40, 112, 237, 0.08);
 }
 
 .rowProgressFill {
@@ -300,7 +303,7 @@
 
 .status_queued {
     color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-secondary);
 }
 
 .rowNumQueued {

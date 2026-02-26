@@ -191,7 +191,7 @@ export default function PipelineCanvas({
                                 <button
                                     className="btn"
                                     onClick={onEdit}
-                                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                                 >
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M10 2L13 5L5 13H2V10L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -213,7 +213,7 @@ export default function PipelineCanvas({
                             </div>
                         )}
                         {started && allDone && (
-                            <div className={styles.runningBadge} style={{ borderColor: 'rgba(5,150,105,0.4)', color: 'var(--accent-green)', background: 'rgba(5,150,105,0.08)' }}>
+                            <div className={styles.runningBadge} style={{ borderColor: 'rgba(5,150,105,0.25)', color: 'var(--accent-green)', background: 'var(--accent-green-light)' }}>
                                 ✓ Dokončeno
                             </div>
                         )}
@@ -235,7 +235,7 @@ export default function PipelineCanvas({
                     <div className={styles.currentlyProcessing}>
                         <div className={styles.currentSpinner}>
                             <svg viewBox="0 0 24 24" width="20" height="20">
-                                <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" fill="none" />
+                                <circle cx="12" cy="12" r="10" stroke="rgba(0,0,0,0.08)" strokeWidth="2.5" fill="none" />
                                 <circle cx="12" cy="12" r="10" stroke={processingAgent.color} strokeWidth="2.5" fill="none"
                                     strokeDasharray="31 32" strokeLinecap="round" />
                             </svg>
@@ -293,7 +293,7 @@ export default function PipelineCanvas({
                                     ) : isProcessing ? (
                                         <div className={styles.rowSpinner}>
                                             <svg viewBox="0 0 20 20" width="20" height="20">
-                                                <circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.08)" strokeWidth="2" fill="none" />
+                                                <circle cx="10" cy="10" r="8" stroke="rgba(0,0,0,0.08)" strokeWidth="2" fill="none" />
                                                 <circle cx="10" cy="10" r="8" stroke={agent.color} strokeWidth="2" fill="none"
                                                     strokeDasharray="25 26" strokeLinecap="round" />
                                             </svg>

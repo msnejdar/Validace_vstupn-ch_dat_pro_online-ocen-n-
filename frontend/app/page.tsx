@@ -416,7 +416,7 @@ export default function Home() {
                         </div>
                         <span>{pdfFile.name}</span>
                         {pdfParsing && <span className={styles.spinner} style={{ width: '14px', height: '14px', borderWidth: '2px' }} />}
-                        {pdfParsing && <span style={{ fontSize: '12px', color: 'var(--accent-blue-light)' }}>Extrahuji údaje...</span>}
+                        {pdfParsing && <span style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>Extrahuji údaje...</span>}
                       </div>
                       <button className={styles.pdfRemoveBtn} onClick={() => { setPdfFile(null); setExtractedData(null); }}>✕</button>
                     </div>
@@ -556,7 +556,7 @@ export default function Home() {
                       <path d="M11.5 4L5.5 10L2.5 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     Extrahované údaje z PDF
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginLeft: '8px', fontWeight: 400 }}>— můžete upravit</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px', fontWeight: 400 }}>— můžete upravit</span>
                   </div>
                   <div className={styles.extractedGrid}>
                     {(Object.keys(DATA_LABELS) as (keyof PropertyData)[]).map(key => {
@@ -618,7 +618,7 @@ export default function Home() {
                       style={{ display: 'none' }}
                     />
                     <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 4V18M8 12L14 18L20 12" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M14 4V18M8 12L14 18L20 12" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                     <span>Klikněte nebo přetáhněte PDF s Listem vlastnictví</span>
                   </div>
@@ -651,14 +651,14 @@ export default function Home() {
                     </div>
 
                     {lvData.owners.length > 0 && (
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', padding: '0 4px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', padding: '0 4px' }}>
                         {lvData.owners.map((o, i) => (
                           <span key={i}>{o.name} ({o.share}){i < lvData.owners.length - 1 ? ', ' : ''}</span>
                         ))}
                       </div>
                     )}
 
-                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '10px', padding: '0 4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px', padding: '0 4px' }}>
                       <strong>Funkční celek — vyberte parcely pro validaci:</strong>
                     </div>
 
@@ -672,11 +672,11 @@ export default function Home() {
                             gap: '10px',
                             padding: '8px 12px',
                             background: selectedParcels.includes(p.parcel_number)
-                              ? 'rgba(99,102,241,0.08)'
-                              : 'rgba(255,255,255,0.02)',
+                              ? '#E8F0FE'
+                              : '#F8FAFC',
                             border: selectedParcels.includes(p.parcel_number)
-                              ? '1px solid rgba(99,102,241,0.3)'
-                              : '1px solid rgba(255,255,255,0.06)',
+                              ? '1px solid rgba(40,112,237,0.3)'
+                              : '1px solid #E2E8F0',
                             borderRadius: '8px',
                             cursor: 'pointer',
                             fontSize: '13px',
@@ -687,24 +687,24 @@ export default function Home() {
                             type="checkbox"
                             checked={selectedParcels.includes(p.parcel_number)}
                             onChange={() => toggleParcel(p.parcel_number)}
-                            style={{ accentColor: '#6366f1' }}
+                            style={{ accentColor: '#2870ED' }}
                           />
                           <span style={{ fontWeight: 600, minWidth: '65px' }}>p.č. {p.parcel_number}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>{p.area_m2} m²</span>
-                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{p.land_type}</span>
-                          {p.land_use && <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px' }}>({p.land_use})</span>}
+                          <span style={{ color: 'var(--text-muted)' }}>{p.area_m2} m²</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{p.land_type}</span>
+                          {p.land_use && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({p.land_use})</span>}
                         </label>
                       ))}
                     </div>
 
                     {lvData.buildings.length > 0 && (
-                      <div style={{ marginTop: '10px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', padding: '0 4px' }}>
+                      <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-muted)', padding: '0 4px' }}>
                         <strong>Stavby:</strong> {lvData.buildings.map(b => b.part_of).join('; ')}
                       </div>
                     )}
 
                     {lvData.encumbrances.length > 0 && (
-                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#f59e0b', padding: '0 4px' }}>
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--accent-orange)', padding: '0 4px' }}>
                         ⚠ {lvData.encumbrances.length} záznam(ů) v sekci C (zástavní práva, věcná břemena, ...)
                       </div>
                     )}

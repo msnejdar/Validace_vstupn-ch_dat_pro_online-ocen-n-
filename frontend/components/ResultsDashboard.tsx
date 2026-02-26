@@ -298,7 +298,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                     🏛️ Katastr & LV — ortofoto funkčního celku
                                 </h3>
                                 {lvData && (
-                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                         LV {lvData.lv_number} · k.ú. {lvData.kat_uzemi_nazev}
                                     </span>
                                 )}
@@ -308,10 +308,10 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                             {ortofotoUrl && (
                                 <div style={{ margin: '16px 0' }}>
                                     <div style={{
-                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        border: '1px solid var(--border-color)',
                                         borderRadius: '12px',
                                         overflow: 'hidden',
-                                        background: '#111',
+                                        background: 'var(--bg-secondary)',
                                     }}>
                                         <img
                                             src={`${API_BASE}${ortofotoUrl}`}
@@ -325,7 +325,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                             }}
                                         />
                                     </div>
-                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
                                         Ortofoto ČÚZK — {cadDetails.ortofoto_annotated_url ? 'se zvýrazněnými stavbami' : 'funkční celek'}
                                     </div>
                                 </div>
@@ -375,7 +375,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                                 Přístup k nemovitosti: {access.status}
                                             </div>
                                             {access.reason && (
-                                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                                                     {access.reason}
                                                 </div>
                                             )}
@@ -387,7 +387,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                             {/* Risks table */}
                             {risks.length > 0 && (
                                 <div style={{ marginTop: '16px' }}>
-                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: 'rgba(255,255,255,0.7)' }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-secondary)' }}>
                                         Nalezená rizika
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -397,17 +397,17 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                                 alignItems: 'flex-start',
                                                 gap: '10px',
                                                 padding: '10px 12px',
-                                                background: 'rgba(255,255,255,0.02)',
-                                                border: `1px solid ${riskColors[r.severity] || '#666'}33`,
+                                                background: 'var(--bg-secondary)',
+                                                border: `1px solid ${riskColors[r.severity] || '#ccc'}44`,
                                                 borderRadius: '8px',
                                             }}>
                                                 <span style={{
                                                     fontSize: '11px',
                                                     fontWeight: 700,
                                                     padding: '2px 8px',
-                                                    borderRadius: '4px',
-                                                    background: `${riskColors[r.severity] || '#666'}22`,
-                                                    color: riskColors[r.severity] || '#999',
+                                                    borderRadius: '128px',
+                                                    background: `${riskColors[r.severity] || '#ccc'}15`,
+                                                    color: riskColors[r.severity] || '#666',
                                                     textTransform: 'uppercase',
                                                     whiteSpace: 'nowrap',
                                                     flexShrink: 0,
@@ -415,11 +415,11 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                                     {r.severity}
                                                 </span>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
                                                         {r.description}
                                                     </div>
                                                     {r.recommendation && (
-                                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                                                             💡 {r.recommendation}
                                                         </div>
                                                     )}
@@ -668,7 +668,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     <button
                         className="btn"
                         onClick={onEdit}
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                     >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M10 2L13 5L5 13H2V10L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
