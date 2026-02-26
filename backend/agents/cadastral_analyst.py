@@ -349,14 +349,15 @@ class CadastralAnalystAgent(BaseAgent):
     # ─── Ortofoto download ──────────────────────────────────────────────
     async def _download_ortofoto(self, bbox: list, session_id: str,
                                   center_coords: tuple = None) -> tuple[str | None, str | None]:
-        """Download ortofoto + highlight parcels with cadastral overlay from ČÚZK WMS.
+        """Download ortofoto + katastr-style overlay (yellow lines, cyan parcel fill).
 
         Layers composited:
         1. Ortofoto (satellite image)
         2. Cyan semi-transparent fill for the property parcel (flood-fill)
-        3. Colored parcel boundaries + parcel numbers
+        3. Yellow parcel boundaries + parcel numbers (katastr style)
         """
         CUZK_WMS_KM = "https://services.cuzk.gov.cz/wms/local-km-wms.asp"
+        FILL_SIZE = 512  # Reduced resolution for flood-fill
 
         try:
             session_dir = os.path.join(UPLOAD_DIR, session_id)
@@ -366,7 +367,7 @@ class CadastralAnalystAgent(BaseAgent):
             IMG_SIZE = 1024
 
             async with httpx.AsyncClient(timeout=30) as client:
-                # 1) Download ortofoto
+                # 1) Ortofoto
                 ortho_resp = await client.get(CUZK_WMS_ORTOFOTO, params={
                     "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
                     "LAYERS": "0", "CRS": "EPSG:4326", "BBOX": wms_bbox,
@@ -380,7 +381,7 @@ class CadastralAnalystAgent(BaseAgent):
 
                 self.log(f"Ortofoto staženo ({len(ortho_resp.content)} B)")
 
-                # 2) Download parcel boundary mask (thin lines for flood fill)
+                # 2) Boundary lines (used for flood-fill mask + yellow overlay)
                 boundary_resp = await client.get(CUZK_WMS_KM, params={
                     "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
                     "LAYERS": "hranice_parcel",
@@ -389,42 +390,36 @@ class CadastralAnalystAgent(BaseAgent):
                     "FORMAT": "image/png", "STYLES": "", "TRANSPARENT": "TRUE",
                 })
 
-                # 3) Download colored overlay (boundaries + numbers)
-                color_resp = await client.get(CUZK_WMS_KM, params={
+                # 3) Parcel numbers
+                nums_resp = await client.get(CUZK_WMS_KM, params={
                     "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
-                    "LAYERS": "hranice_parcel_barevne,parcelni_cisla",
+                    "LAYERS": "parcelni_cisla",
                     "CRS": "EPSG:4326", "BBOX": wms_bbox,
                     "WIDTH": str(IMG_SIZE), "HEIGHT": str(IMG_SIZE),
                     "FORMAT": "image/png", "STYLES": "", "TRANSPARENT": "TRUE",
                 })
 
-            # Build the composite image
             ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
 
-            # Flood-fill parcel highlighting (at reduced resolution to save memory)
-            FILL_SIZE = 512  # Reduced resolution for flood-fill processing
+            # ── Flood-fill parcel highlighting ──
             if center_coords and boundary_resp.status_code == 200 and \
                boundary_resp.headers.get("content-type", "").startswith("image"):
                 try:
                     lat, lon = center_coords
-                    boundary_img = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
-                    boundary_small = boundary_img.resize((FILL_SIZE, FILL_SIZE), Image.LANCZOS)
-                    # Free original
-                    del boundary_img
+                    bnd_img = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
+                    bnd_small = bnd_img.resize((FILL_SIZE, FILL_SIZE), Image.LANCZOS)
 
-                    # Extract alpha channel as boundary mask
-                    alpha = boundary_small.split()[3]
-                    # Binary mask: 255 = interior, 0 = boundary (alpha > 30)
+                    # Binary mask from alpha: 255=interior, 0=boundary
+                    alpha = bnd_small.split()[3]
                     mask = alpha.point(lambda p: 0 if p > 30 else 255)
-                    del alpha, boundary_small
+                    del alpha, bnd_small
 
-                    # Seed point in reduced coordinates
+                    # Seed point
                     cx = int((lon - bbox[0]) / (bbox[2] - bbox[0]) * FILL_SIZE)
                     cy = int((bbox[3] - lat) / (bbox[3] - bbox[1]) * FILL_SIZE)
                     cx = max(0, min(cx, FILL_SIZE - 1))
                     cy = max(0, min(cy, FILL_SIZE - 1))
 
-                    # Find non-boundary seed point (spiral search)
                     mask_data = mask.load()
                     seed = None
                     for r in range(0, 60):
@@ -441,17 +436,12 @@ class CadastralAnalystAgent(BaseAgent):
                             break
 
                     if seed:
-                        # Flood fill: mark interior as 128
                         ImageDraw.floodfill(mask, seed, 128, thresh=50)
 
-                        # Create cyan overlay: where mask == 128, put cyan
-                        # Use point() to create alpha channel for overlay
                         fill_alpha = mask.point(lambda p: 80 if p == 128 else 0)
-                        # Upscale to original ortofoto size
                         fill_alpha = fill_alpha.resize(ortho_img.size, Image.LANCZOS)
                         del mask
 
-                        # Create the cyan overlay using the alpha mask
                         cyan = Image.new("RGBA", ortho_img.size, (0, 255, 255, 0))
                         cyan.putalpha(fill_alpha)
                         del fill_alpha
@@ -461,22 +451,45 @@ class CadastralAnalystAgent(BaseAgent):
                         self.log(f"✓ Parcela zvýrazněna (seed={seed})")
                     else:
                         del mask
-                        self.log("Seed point pro flood-fill nenalezen", "warn")
+                        self.log("Seed pro flood-fill nenalezen", "warn")
 
                 except Exception as e:
                     self.log(f"Chyba zvýraznění parcel: {e}", "warn")
 
-            # Overlay colored boundaries + parcel numbers
+            # ── Yellow boundary lines (katastr style) ──
             try:
-                if color_resp.status_code == 200 and \
-                   color_resp.headers.get("content-type", "").startswith("image"):
-                    color_img = Image.open(io.BytesIO(color_resp.content)).convert("RGBA")
-                    if color_img.size != ortho_img.size:
-                        color_img = color_img.resize(ortho_img.size, Image.LANCZOS)
-                    ortho_img = Image.alpha_composite(ortho_img, color_img)
-                    self.log("✓ Hranice parcel a čísla překryty")
+                if boundary_resp.status_code == 200 and \
+                   boundary_resp.headers.get("content-type", "").startswith("image"):
+                    bnd_full = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
+                    if bnd_full.size != ortho_img.size:
+                        bnd_full = bnd_full.resize(ortho_img.size, Image.LANCZOS)
+                    bnd_alpha = bnd_full.split()[3]
+                    del bnd_full
+                    yellow_lines = Image.new("RGBA", ortho_img.size, (255, 255, 0, 0))
+                    yellow_lines.putalpha(bnd_alpha)
+                    del bnd_alpha
+                    ortho_img = Image.alpha_composite(ortho_img, yellow_lines)
+                    del yellow_lines
             except Exception as e:
                 self.log(f"Chyba překrytí hranic: {e}", "warn")
+
+            # ── Yellow parcel numbers ──
+            try:
+                if nums_resp.status_code == 200 and \
+                   nums_resp.headers.get("content-type", "").startswith("image"):
+                    nums_img = Image.open(io.BytesIO(nums_resp.content)).convert("RGBA")
+                    if nums_img.size != ortho_img.size:
+                        nums_img = nums_img.resize(ortho_img.size, Image.LANCZOS)
+                    nums_alpha = nums_img.split()[3]
+                    del nums_img
+                    yellow_nums = Image.new("RGBA", ortho_img.size, (255, 255, 0, 0))
+                    yellow_nums.putalpha(nums_alpha)
+                    del nums_alpha
+                    ortho_img = Image.alpha_composite(ortho_img, yellow_nums)
+                    del yellow_nums
+                    self.log("✓ Žluté hranice a čísla parcel")
+            except Exception as e:
+                self.log(f"Chyba překrytí čísel: {e}", "warn")
 
             # Save final image
             final_img = ortho_img.convert("RGB")
