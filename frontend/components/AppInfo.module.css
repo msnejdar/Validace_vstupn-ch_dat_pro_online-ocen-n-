@@ -1,0 +1,329 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 780px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modalTitle {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modalSubtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+}
+
+.closeBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.closeBtn:hover {
+    background: var(--accent-red-light);
+    border-color: rgba(220, 38, 38, 0.2);
+    color: var(--accent-red);
+}
+
+.modalBody {
+    padding: 24px 28px 28px;
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+}
+
+/* Sections */
+.section {
+    margin-bottom: 28px;
+}
+
+.section:last-child {
+    margin-bottom: 0;
+}
+
+.sectionTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sectionIcon {
+    font-size: 18px;
+}
+
+.sectionDesc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 16px;
+}
+
+.sectionDesc code {
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent-blue);
+    border: 1px solid var(--border-color);
+}
+
+/* Tech Grid */
+.techGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.techCard {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.techCategory {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+}
+
+.techList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.techList li {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 3px 0;
+    line-height: 1.4;
+}
+
+.techList li::before {
+    content: '•';
+    color: var(--text-muted);
+    margin-right: 8px;
+}
+
+/* Agent List */
+.agentList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agentItem {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.agentHeader {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-primary);
+    border: none;
+    border-left: 4px solid transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.agentHeader:hover {
+    background: var(--bg-secondary);
+}
+
+.agentMeta {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.agentIcon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.agentName {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.agentDesc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.agentChevron {
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+/* Prompt */
+.agentPrompt {
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    background: var(--bg-secondary);
+    animation: fadeIn 0.2s ease;
+}
+
+.promptLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+}
+
+.promptCode {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Pipeline flow */
+.pipelineFlow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.pipelineStep {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.pipelineNum {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+}
+
+.pipelineArrow {
+    color: var(--text-muted);
+    margin: 0 4px;
+}
+
+@media (max-width: 768px) {
+    .overlay {
+        padding: 16px;
+    }
+
+    .techGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .pipelineFlow {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .pipelineArrow {
+        transform: rotate(90deg);
+    }
+}

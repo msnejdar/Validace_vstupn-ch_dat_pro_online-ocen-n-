@@ -4,6 +4,7 @@ import styles from './page.module.css';
 import { uploadFiles, startPipeline, parsePdf, parseLv, type UploadResponse, type PipelineResult, type PropertyData, type LVData } from '@/lib/api';
 import PipelineCanvas from '@/components/PipelineCanvas';
 import ResultsDashboard from '@/components/ResultsDashboard';
+import AppInfo from '@/components/AppInfo';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const EMPTY_PROPERTY_DATA: PropertyData = {
@@ -48,6 +49,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [showAppInfo, setShowAppInfo] = useState(false);
 
   // PDF state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -277,9 +279,19 @@ export default function Home() {
             <div className={`${styles.step} ${step === 'results' ? styles.stepActive : ''}`}>
               <span className={styles.stepNum}>3</span>Výsledky
             </div>
+            <div className={styles.stepLine} />
+            <button
+              className={styles.infoBtn}
+              onClick={() => setShowAppInfo(true)}
+              title="O aplikaci"
+            >
+              ℹ
+            </button>
           </div>
         </div>
       </header>
+
+      {showAppInfo && <AppInfo onClose={() => setShowAppInfo(false)} />}
 
       {/* Upload Step */}
       {step === 'upload' && (
