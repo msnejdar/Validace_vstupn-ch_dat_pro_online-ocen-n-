@@ -19,12 +19,57 @@ Dostaneš:
 
 Na základě fotografií ověř, zda odpovídají údajům z formuláře. Konkrétně hodnoť KAŽDÝ z těchto bodů:
 
-1. **Počet podlaží** – Odpovídá vizuálně počet pater na fotkách (přízemí, patro, podkroví, suterén) deklarovanému počtu? Počítej všechna viditelná podlaží včetně podkroví, pokud je obytné (střešní okna, vikýře).
-2. **Celková podlahová plocha** – Odhadni přibližnou podlahovou plochu z fotografií. Zohledni viditelný půdorys domu (šířka × hloubka), počet podlaží, a porovnej s deklarovanou hodnotou. Pokud je rozdíl větší než 20 %, označ jako neshodu.
-3. **Typ střechy** – Shoduje se typ střechy na fotkách (sedlová, valbová, plochá, mansardová) s deklarovaným?
+═══════════════════════════════════════════════════════════════
+1. **POČET PODLAŽÍ** — NEJDŮLEŽITĚJŠÍ KONTROLA (častá chyba!)
+═══════════════════════════════════════════════════════════════
+
+Toto je NEJČASTĚJŠÍ chyba v dokumentaci. Pečlivě spočítej podlaží z fotografií:
+
+PRAVIDLA PRO POČÍTÁNÍ PODLAŽÍ:
+- **1NP (přízemí)** = vždy se počítá
+- **2NP (patro)** = plné nadzemní podlaží se svislými stěnami v celé výšce
+- **Podkroví (obytné)** = prostor pod střechou se střešními okny, vikýři nebo obytně upravený
+  → Obytné podkroví se POČÍTÁ jako podlaží a mělo by být v deklaraci uvedeno
+  → Záleží na formuláři: může být uvedeno jako „1+podkroví" nebo „2 podlaží"
+- **Půda (neobytná)** = prostor pod střechou BEZ oken, BEZ vikýřů, neupravený
+  → Neobytná půda se NEPOČÍTÁ jako podlaží
+- **Suterén/sklep** = podzemní podlaží
+  → Může i nemusí být počítáno podle formuláře, ale musí být konzistentní s „podsklepení"
+
+ČASTÉ CHYBY, KTERÉ MUSÍŠ ODHALIT:
+- Deklarováno „2 podlaží" ale na fotce je vidět jen přízemí + podkroví → ve skutečnosti 1NP + podkroví
+- Deklarováno „1 podlaží" ale na fotce je vidět přízemí + celé patro → ve skutečnosti 2NP
+- Podkroví s vikýři/střešními okny ale neuvedeno v podlažích
+- Suterén viditelný (suterénní okna, anglické dvorky) ale neuveden
+
+JAK POZNAT POČET PODLAŽÍ Z FOTEK:
+- Počítej ŘADY OKEN nad sebou na exteriérových fotkách
+- 1 řada oken = přízemí (1NP)
+- 2 řady oken = přízemí + patro (2NP)
+- Okna ve střeše (střešní okna, vikýře) = podkroví
+- Okna pod úrovní terénu = suterén
+- Na interiérových fotkách: šikmé stropy/stěny = podkroví
+
+PODKROVÍ — PODROBNÁ ANALÝZA:
+- Pokud vidíš VIKÝŘE (výstupky ze střechy s okny) → obytné podkroví
+- Pokud vidíš STŘEŠNÍ OKNA (Velux apod.) → obytné podkroví
+- Pokud na interiérových fotkách vidíš šikmé stropy s nábytkem → obytné podkroví
+- Pokud střecha nemá žádná okna a je strmá → pravděpodobně neobytná půda
+- Sedlová/mansardová střecha s okny → téměř jistě podkroví
+
+2. **Celková podlahová plocha** – Odhadni přibližnou podlahovou plochu z fotografií.
+   Zohledni viditelný půdorys domu (šířka × hloubka), počet podlaží, a porovnej s deklarovanou hodnotou.
+   Pokud je rozdíl větší než 20 %, označ jako neshodu. Uveď jak jsi odhad provedl.
+
+3. **Typ střechy** – Shoduje se typ střechy na fotkách (sedlová, valbová, plochá, mansardová, pultová) s deklarovaným?
+
 4. **Stav domu** – Odpovídá vizuální stav domu (fasáda, okna, celkový dojem) deklarovanému stavu?
+
 5. **Podsklepení** – Jsou na fotkách viditelné známky sklepa (suterénní okna, anglické dvorky, schody dolů)?
-6. **Typ vytápění** – Jsou na fotkách viditelné prvky vytápění (komín, plynový kotel, tepelné čerpadlo, solární panely)?
+   Porovnej s deklarací. Konzistentní s počtem podlaží (pokud vidíš suterén, musí být uveden).
+
+6. **Typ vytápění** – Jsou na fotkách viditelné prvky vytápění (komín, plynový kotel, tepelné čerpadlo, radiátory, podlahové vytápění, solární panely, krb)?
+
 7. **Celkový dojem** – Celkové zhodnocení souladu formuláře a fotek.
 
 Vrať výsledek jako JSON:
@@ -36,14 +81,14 @@ Vrať výsledek jako JSON:
     {
       "field": "počet podlaží",
       "declared": "hodnota z formuláře",
-      "observed": "co je vidět na fotkách",
+      "observed": "co je vidět na fotkách (např. '1NP + obytné podkroví')",
       "match": true/false,
-      "note": "Podrobný komentář..."
+      "note": "Detailní analýza: kolik řad oken, vikýře, střešní okna, šikmé stropy..."
     },
     {
       "field": "celková podlahová plocha",
       "declared": "hodnota z formuláře v m²",
-      "observed": "odhadovaná plocha z fotek v m²",
+      "observed": "odhadovaná plocha z fotek v m² (postup odhadu)",
       "match": true/false,
       "note": "Jak jsi k odhadu dospěl, proč se shoduje/neshoduje..."
     },
@@ -53,7 +98,8 @@ Vrať výsledek jako JSON:
   "recommendations": ["Doporučení..."]
 }
 
-Odpověz POUZE validním JSON. Buď objektivní a pečlivý v hodnocení. Vždy zahrň kontrolu podlahové plochy a počtu podlaží.
+Odpověz POUZE validním JSON. Buď objektivní a EXTRA pečlivý v hodnocení počtu podlaží a podkroví.
+Vždy zahrň kontrolu podlahové plochy a počtu podlaží jako PRVNÍ dva body v checks.
 """
 
 
