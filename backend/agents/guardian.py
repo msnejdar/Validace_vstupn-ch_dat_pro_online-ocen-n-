@@ -1,55 +1,86 @@
 """Agent 1: Guardian – Completeness Check (BR-G4).
 
-Validates that the photo set meets minimum requirements for RD (family house):
-- Min 9 photos total
-- Min 2 exterior photos
-- Min 3 interior photos
-- Must detect rear/side exterior (blocking requirement)
-- Allows 1 photo for multiple categories
+Validates that the photo set meets the mandatory documentation requirements
+for RD (rodinný dům) property valuation:
+
+1) Aktuální barevné fotografie:
+   - Exteriér domu s číslem popisným, pohled ze všech světových stran (pokud možné)
+   - Interiér všech místností (kuchyň, pokoje, koupelna, chodba a další)
+   - Vedlejší stavby (garáž, stodola apod.) — POUZE pokud existují
+
+2) Dokumentace půdorysů jednotlivých podlaží a řezů (pokud je k dispozici)
 """
 import json
 from google import genai
 from google.genai import types
 
 from agents.base import BaseAgent, AgentResult, AgentStatus
-from config import (
-    GEMINI_API_KEY, GEMINI_MODEL,
-    MIN_TOTAL_PHOTOS, MIN_EXTERIOR_PHOTOS, MIN_INTERIOR_PHOTOS,
-)
+from config import GEMINI_API_KEY, GEMINI_MODEL
 
-GUARDIAN_SYSTEM_PROMPT = """Jsi expert na validaci fotografických sad nemovitostí typu Rodinný dům (RD).
+GUARDIAN_SYSTEM_PROMPT = """Jsi expert na validaci fotografické dokumentace nemovitostí typu Rodinný dům (RD) pro účely bankovního ocenění.
 
-Tvůj úkol je klasifikovat každou fotografii do jedné nebo více kategorií a ověřit úplnost sady.
+POVINNÁ FOTODOKUMENTACE:
+1) Aktuální barevné fotografie:
+   a) EXTERIÉR — pohled na dům ze všech světových stran (přední, zadní, boční), pokud je to možné.
+      Na alespoň jedné fotce musí být viditelné číslo popisné (CP).
+   b) INTERIÉR — fotografie všech místností:
+      - kuchyň, obývací pokoj, ložnice, koupelna, WC, chodba, schodiště, sklep, podkroví a další
+   c) VEDLEJŠÍ STAVBY — garáž, stodola, dílna, kůlna apod.
+      Vedlejší stavby se fotí POUZE pokud na pozemku existují.
+      Pokud na žádné fotce ani z exteriéru nevidíš vedlejší stavby, nepovažuj to za chybu.
 
-KATEGORIE:
-- EXTERIER_PREDNI: Přední pohled na dům (fasáda, vchod)
-- EXTERIER_ZADNI: Zadní pohled na dům (zahrada, terasa)
+2) Dokumentace půdorysů — projektová dokumentace, studie, půdorysy s rozměry
+   (nemusí být fotografie, může to být PDF s technickými výkresy)
+
+KATEGORIE PRO KLASIFIKACI:
+- EXTERIER_PREDNI: Přední pohled na dům (fasáda, vchod), ideálně s číslem popisným
+- EXTERIER_ZADNI: Zadní pohled na dům (ze zahrady/dvora)
 - EXTERIER_BOCNI: Boční pohled na dům
-- EXTERIER_DETAIL: Detail exteriéru (střecha, okna, fasáda zblízka)
-- INTERIER_KUCHYN: Kuchyň
+- EXTERIER_DETAIL: Detail exteriéru (střecha, okna, fasáda zblízka, sokl)
+- EXTERIER_CISLO_POPISNE: Fotografie s viditelným číslem popisným na domě
+- INTERIER_KUCHYN: Kuchyň nebo kuchyňský kout
 - INTERIER_OBYVAK: Obývací pokoj
-- INTERIER_LOZNICE: Ložnice
-- INTERIER_KOUPELNA: Koupelna
-- INTERIER_OSTATNI: Jiné interiérové prostory (chodba, schodiště, sklep, garáž)
-- OKOLÍ: Zahrada, příjezdová cesta, okolí domu
+- INTERIER_LOZNICE: Ložnice / dětský pokoj
+- INTERIER_KOUPELNA: Koupelna / WC
+- INTERIER_CHODBA: Chodba, schodiště, vstupní hala
+- INTERIER_SKLEP: Sklep, suterén
+- INTERIER_PODKROVI: Podkroví, půdní prostor
+- INTERIER_OSTATNI: Jiné interiérové prostory (šatna, prádelna, technická místnost, garáž zevnitř)
+- VEDLEJSI_STAVBA: Vedlejší stavba — garáž, stodola, dílna, kůlna, zahradní domek
+- OKOLI: Zahrada, příjezdová cesta, okolí domu, pohled na pozemek
+- PUDORYS: Půdorys, technický výkres, projektová dokumentace
 
 PRAVIDLA:
-1. Jedna fotografie MŮŽE patřit do více kategorií (např. kuchyň s obývákem = INTERIER_KUCHYN + INTERIER_OBYVAK).
+1. Jedna fotografie MŮŽE patřit do více kategorií (např. kuchyň s jídelním koutem = INTERIER_KUCHYN + INTERIER_OBYVAK).
 2. Pro každou fotku vrať seznam kategorií, do kterých spadá.
-3. Vrať JSON ve formátu:
+3. V popisu uveď stručně co vidíš na fotce.
+4. Pokud na exteriérové fotce vidíš číslo popisné, přidej kategorii EXTERIER_CISLO_POPISNE.
+5. Pokud na fotce vidíš vedlejší stavbu (i na pozadí exteriéru), přidej VEDLEJSI_STAVBA.
+
+Vrať JSON:
 {
   "classifications": [
-    {"photo_id": "xxx", "categories": ["EXTERIER_PREDNI"], "description": "Přední pohled na RD..."},
-    ...
+    {"photo_id": "xxx", "categories": ["EXTERIER_PREDNI", "EXTERIER_CISLO_POPISNE"], "description": "Přední pohled na RD s viditelným ČP 425"}
   ],
   "summary": {
     "total_photos": N,
     "exterior_count": N,
     "interior_count": N,
-    "has_rear_or_side_exterior": true/false,
+    "has_cislo_popisne": true/false,
+    "has_front": true/false,
+    "has_rear": true/false,
+    "has_side": true/false,
+    "has_vedlejsi_stavba_photo": true/false,
+    "vedlejsi_stavba_visible": true/false,
+    "interior_rooms_found": ["kuchyň", "obývák", "ložnice", "koupelna", ...],
     "categories_found": ["EXTERIER_PREDNI", ...]
   }
 }
+
+DŮLEŽITÉ:
+- "vedlejsi_stavba_visible": true pokud na JAKÉKOLI fotce (i exteriérové) vidíš vedlejší stavbu na pozemku.
+- "has_vedlejsi_stavba_photo": true pokud existuje samostatná fotka vedlejší stavby.
+- "interior_rooms_found": seznam typů místností, které jsou zdokumentovány (nemusí být česky, stačí klíčová slova).
 
 Odpověz POUZE validním JSON.
 """
@@ -61,7 +92,7 @@ class GuardianAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="Guardian",
-            description="Ověření úplnosti fotografické sady (BR-G4)",
+            description="Ověření úplnosti fotografické dokumentace (BR-G4)",
             system_prompt=GUARDIAN_SYSTEM_PROMPT,
         )
         self.client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -70,27 +101,24 @@ class GuardianAgent(BaseAgent):
         images = context.get("images", [])
         total = len(images)
 
-        self.log(f"Received {total} images for completeness check.")
+        self.log(f"Kontrola úplnosti: {total} fotografií.")
 
-        # Basic count check
-        if total < MIN_TOTAL_PHOTOS:
-            self.log(f"FAIL: Only {total} photos, minimum is {MIN_TOTAL_PHOTOS}.", "error")
+        if total < 5:
+            self.log(f"Nedostatečný počet fotek: {total}", "error")
             return AgentResult(
                 status=AgentStatus.FAIL,
-                summary=f"Nedostatečný počet fotografií: {total}/{MIN_TOTAL_PHOTOS}",
-                details={"total_photos": total, "required": MIN_TOTAL_PHOTOS},
-                errors=[f"Počet fotografií ({total}) je menší než minimum ({MIN_TOTAL_PHOTOS})."],
+                summary=f"Nedostatečný počet fotografií: {total} (minimum ~9)",
+                details={"total_photos": total},
+                errors=[f"Počet fotografií ({total}) je příliš nízký pro kompletní dokumentaci RD."],
             )
 
-        # Use AI to classify photos
         self.log("Klasifikuji fotografie pomocí AI...", "thinking")
 
         if not self.client:
-            self.log("Gemini API key not configured. Using fallback logic.", "warn")
+            self.log("Gemini API key nenakonfigurován. Používám fallback.", "warn")
             return self._fallback_result(total)
 
         try:
-            # Build content parts with images
             parts = [f"Klasifikuj těchto {total} fotografií rodinného domu:\n"]
 
             for img in images:
@@ -105,34 +133,91 @@ class GuardianAgent(BaseAgent):
                 config=types.GenerateContentConfig(
                     system_instruction=self.system_prompt,
                     response_mime_type="application/json",
-                    max_output_tokens=2000,
+                    max_output_tokens=3000,
                 ),
             )
 
-            result_text = response.text
-            self.log("AI classification received.", "info")
-            ai_result = json.loads(result_text)
+            ai_result = json.loads(response.text)
+            self.log("AI klasifikace přijata.")
 
-            # Parse AI response
             classifications = ai_result.get("classifications", [])
             summary = ai_result.get("summary", {})
+
             exterior_count = summary.get("exterior_count", 0)
             interior_count = summary.get("interior_count", 0)
-            has_rear_side = summary.get("has_rear_or_side_exterior", False)
+            has_cp = summary.get("has_cislo_popisne", False)
+            has_front = summary.get("has_front", False)
+            has_rear = summary.get("has_rear", False)
+            has_side = summary.get("has_side", False)
+            vedlejsi_visible = summary.get("vedlejsi_stavba_visible", False)
+            has_vedlejsi_photo = summary.get("has_vedlejsi_stavba_photo", False)
+            rooms_found = summary.get("interior_rooms_found", [])
+            categories = summary.get("categories_found", [])
 
-            self.log(f"Exterior: {exterior_count}, Interior: {interior_count}, Rear/Side: {has_rear_side}")
+            self.log(f"Ext: {exterior_count}, Int: {interior_count}, ČP: {has_cp}, "
+                     f"Přední/Zadní/Boční: {has_front}/{has_rear}/{has_side}")
+            self.log(f"Místnosti: {', '.join(rooms_found) if rooms_found else 'nezjištěno'}")
 
-            # Validate requirements
+            # ── Evaluate completeness ──
             warnings = []
             errors = []
 
-            if exterior_count < MIN_EXTERIOR_PHOTOS:
-                errors.append(f"Nedostatečný počet exteriérových fotek: {exterior_count}/{MIN_EXTERIOR_PHOTOS}")
-            if interior_count < MIN_INTERIOR_PHOTOS:
-                errors.append(f"Nedostatečný počet interiérových fotek: {interior_count}/{MIN_INTERIOR_PHOTOS}")
-            if not has_rear_side:
-                errors.append("BLOKUJÍCÍ: Chybí exteriér zadní nebo boční pohled.")
+            # Exterior checks
+            if exterior_count < 2:
+                errors.append(
+                    f"Nedostatečný počet exteriérových fotek: {exterior_count} "
+                    "(požadovány pohledy ze všech stran)"
+                )
 
+            if not has_cp:
+                warnings.append(
+                    "Na žádné fotce nebylo detekováno číslo popisné (ČP). "
+                    "Alespoň jedna exteriérová fotka by měla zachycovat ČP."
+                )
+
+            if not has_front:
+                errors.append("Chybí přední pohled na dům (fasáda/vchod).")
+
+            if not has_rear and not has_side:
+                warnings.append(
+                    "Chybí zadní nebo boční pohled na dům. "
+                    "Doporučeno doplnit pohledy ze všech dostupných stran."
+                )
+
+            # Interior checks — medium severity, not strict for large houses
+            if interior_count < 3:
+                errors.append(
+                    f"Nedostatečný počet interiérových fotek: {interior_count}. "
+                    "Povinné jsou fotografie všech hlavních místností."
+                )
+            else:
+                # Check key rooms
+                rooms_lower = [r.lower() for r in rooms_found]
+                rooms_text = " ".join(rooms_lower)
+
+                missing_rooms = []
+                if not any(k in rooms_text for k in ["kuchyň", "kuchyn", "kitchen"]):
+                    missing_rooms.append("kuchyň")
+                if not any(k in rooms_text for k in ["koupeln", "bathroom", "wc"]):
+                    missing_rooms.append("koupelna")
+                if not any(k in rooms_text for k in ["obýv", "obyvak", "living", "pokoj"]):
+                    missing_rooms.append("obývací pokoj")
+
+                if missing_rooms:
+                    warnings.append(
+                        f"Riziko střední: Chybí fotodokumentace místností: "
+                        f"{', '.join(missing_rooms)}. "
+                        f"U RD s větším počtem místností nemusí být všechny zdokumentovány."
+                    )
+
+            # Secondary buildings — only if they exist
+            if vedlejsi_visible and not has_vedlejsi_photo:
+                warnings.append(
+                    "Na exteriérových fotkách je viditelná vedlejší stavba, "
+                    "ale chybí její samostatná fotodokumentace."
+                )
+
+            # Determine status
             if errors:
                 status = AgentStatus.FAIL
             elif warnings:
@@ -140,25 +225,48 @@ class GuardianAgent(BaseAgent):
             else:
                 status = AgentStatus.SUCCESS
 
-            self.log(f"Guardian result: {status.value}")
+            # Build exterior sides summary
+            sides = []
+            if has_front:
+                sides.append("přední")
+            if has_rear:
+                sides.append("zadní")
+            if has_side:
+                sides.append("boční")
+            sides_text = ", ".join(sides) if sides else "žádný"
+
+            summary_text = (
+                f"Sada {total} fotek: "
+                f"Ext={exterior_count} ({sides_text}), "
+                f"Int={interior_count} ({len(rooms_found)} typů místností), "
+                f"ČP={'ANO' if has_cp else 'NE'}"
+            )
+            if vedlejsi_visible:
+                summary_text += f", Vedlejší stavba={'zdokumentována' if has_vedlejsi_photo else 'nezdokumentována'}"
+
+            self.log(f"Výsledek: {status.value}")
 
             return AgentResult(
                 status=status,
-                summary=f"Sada {total} fotek: Ext={exterior_count}, Int={interior_count}, Zadní/Boční={'ANO' if has_rear_side else 'NE'}",
+                summary=summary_text,
                 details={
                     "classifications": classifications,
                     "total_photos": total,
                     "exterior_count": exterior_count,
                     "interior_count": interior_count,
-                    "has_rear_or_side_exterior": has_rear_side,
-                    "categories_found": summary.get("categories_found", []),
+                    "has_cislo_popisne": has_cp,
+                    "exterior_sides": {"front": has_front, "rear": has_rear, "side": has_side},
+                    "vedlejsi_stavba_visible": vedlejsi_visible,
+                    "has_vedlejsi_stavba_photo": has_vedlejsi_photo,
+                    "interior_rooms_found": rooms_found,
+                    "categories_found": categories,
                 },
                 warnings=warnings,
                 errors=errors,
             )
 
         except Exception as e:
-            self.log(f"AI classification error: {str(e)}", "error")
+            self.log(f"Chyba AI klasifikace: {str(e)}", "error")
             return self._fallback_result(total)
 
     def _fallback_result(self, total: int) -> AgentResult:
@@ -167,5 +275,5 @@ class GuardianAgent(BaseAgent):
             status=AgentStatus.WARN,
             summary=f"Počet fotek: {total} (AI klasifikace nedostupná)",
             details={"total_photos": total, "ai_available": False},
-            warnings=["AI klasifikace nedostupná – nelze ověřit kategorie."],
+            warnings=["AI klasifikace nedostupná – nelze ověřit úplnost dokumentace."],
         )
