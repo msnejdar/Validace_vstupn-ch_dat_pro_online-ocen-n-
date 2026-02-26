@@ -177,7 +177,18 @@ class CadastralAnalystAgent(BaseAgent):
         ortofoto_url = None
         if bbox:
             self.log("Stahování ortofota z ČÚZK WMS...", "thinking")
-            ortofoto_path, ortofoto_url = await self._download_ortofoto(bbox, session_id)
+            # Use geocoded center for parcel flood-fill highlighting
+            center = None
+            if parcel_geometries:
+                coords_list = [(g["lat"], g["lon"]) for g in parcel_geometries.values()
+                               if "lat" in g and "lon" in g]
+                if coords_list:
+                    center = coords_list[0]
+            if not center:
+                center = ((bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2)
+            ortofoto_path, ortofoto_url = await self._download_ortofoto(
+                bbox, session_id, center_coords=center
+            )
 
         # ── Step 5: AI analysis of ortofoto ──
         ortofoto_analysis = None
@@ -336,27 +347,32 @@ class CadastralAnalystAgent(BaseAgent):
         return geometries, bbox
 
     # ─── Ortofoto download ──────────────────────────────────────────────
-    async def _download_ortofoto(self, bbox: list, session_id: str) -> tuple[str | None, str | None]:
-        """Download ortofoto + cadastral parcel overlay from ČÚZK WMS."""
+    async def _download_ortofoto(self, bbox: list, session_id: str,
+                                  center_coords: tuple = None) -> tuple[str | None, str | None]:
+        """Download ortofoto + highlight parcels with cadastral overlay from ČÚZK WMS.
+
+        Layers composited:
+        1. Ortofoto (satellite image)
+        2. Cyan semi-transparent fill for the property parcel (flood-fill)
+        3. Colored parcel boundaries + parcel numbers
+        """
         CUZK_WMS_KM = "https://services.cuzk.gov.cz/wms/local-km-wms.asp"
 
         try:
             session_dir = os.path.join(UPLOAD_DIR, session_id)
             os.makedirs(session_dir, exist_ok=True)
 
-            # WMS 1.3.0 uses lat,lon for EPSG:4326
             wms_bbox = f"{bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]}"
+            IMG_SIZE = 1024
 
-            async with httpx.AsyncClient(timeout=25) as client:
-                # 1) Download ortofoto (satellite image)
-                ortho_params = {
+            async with httpx.AsyncClient(timeout=30) as client:
+                # 1) Download ortofoto
+                ortho_resp = await client.get(CUZK_WMS_ORTOFOTO, params={
                     "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
-                    "LAYERS": "0", "CRS": "EPSG:4326",
-                    "BBOX": wms_bbox,
-                    "WIDTH": "1024", "HEIGHT": "1024",
+                    "LAYERS": "0", "CRS": "EPSG:4326", "BBOX": wms_bbox,
+                    "WIDTH": str(IMG_SIZE), "HEIGHT": str(IMG_SIZE),
                     "FORMAT": "image/jpeg", "STYLES": "",
-                }
-                ortho_resp = await client.get(CUZK_WMS_ORTOFOTO, params=ortho_params)
+                })
 
                 if ortho_resp.status_code != 200 or not ortho_resp.headers.get("content-type", "").startswith("image"):
                     self.log(f"Ortofoto nedostupné (status {ortho_resp.status_code})", "warn")
@@ -364,43 +380,109 @@ class CadastralAnalystAgent(BaseAgent):
 
                 self.log(f"Ortofoto staženo ({len(ortho_resp.content)} B)")
 
-                # 2) Download cadastral map overlay (parcel boundaries)
-                km_params = {
+                # 2) Download parcel boundary mask (thin lines for flood fill)
+                boundary_resp = await client.get(CUZK_WMS_KM, params={
                     "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
-                    "LAYERS": "hranice_parcel_barevne,obrazy_parcel,cisla_parcel",
-                    "CRS": "EPSG:4326",
-                    "BBOX": wms_bbox,
-                    "WIDTH": "1024", "HEIGHT": "1024",
-                    "FORMAT": "image/png", "STYLES": "",
-                    "TRANSPARENT": "TRUE",
-                }
-                km_resp = await client.get(CUZK_WMS_KM, params=km_params)
+                    "LAYERS": "hranice_parcel",
+                    "CRS": "EPSG:4326", "BBOX": wms_bbox,
+                    "WIDTH": str(IMG_SIZE), "HEIGHT": str(IMG_SIZE),
+                    "FORMAT": "image/png", "STYLES": "", "TRANSPARENT": "TRUE",
+                })
 
-                # 3) Compose: ortofoto + cadastral overlay
-                ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
+                # 3) Download colored overlay (boundaries + numbers)
+                color_resp = await client.get(CUZK_WMS_KM, params={
+                    "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap",
+                    "LAYERS": "hranice_parcel_barevne,parcelni_cisla",
+                    "CRS": "EPSG:4326", "BBOX": wms_bbox,
+                    "WIDTH": str(IMG_SIZE), "HEIGHT": str(IMG_SIZE),
+                    "FORMAT": "image/png", "STYLES": "", "TRANSPARENT": "TRUE",
+                })
 
+            # Build the composite image
+            ortho_img = Image.open(io.BytesIO(ortho_resp.content)).convert("RGBA")
+
+            # Flood-fill parcel highlighting
+            if center_coords and boundary_resp.status_code == 200 and \
+               boundary_resp.headers.get("content-type", "").startswith("image"):
                 try:
-                    self.log(f"KM overlay: status={km_resp.status_code}, "
-                             f"ct={km_resp.headers.get('content-type', '?')}, "
-                             f"len={len(km_resp.content)}B")
-                    if km_resp.status_code == 200 and km_resp.headers.get("content-type", "").startswith("image"):
-                        km_img = Image.open(io.BytesIO(km_resp.content)).convert("RGBA")
-                        self.log(f"KM img: mode={km_img.mode}, size={km_img.size}")
-                        if km_img.size != ortho_img.size:
-                            km_img = km_img.resize(ortho_img.size, Image.LANCZOS)
-                        ortho_img = Image.alpha_composite(ortho_img, km_img)
-                        self.log("✓ Katastrální mapa překryta přes ortofoto")
-                    else:
-                        self.log(f"Katastrální mapa nedostupná (status {km_resp.status_code})", "warn")
-                except Exception as e:
-                    self.log(f"Chyba překrytí KM: {e}", "warn")
+                    lat, lon = center_coords
+                    boundary_img = Image.open(io.BytesIO(boundary_resp.content)).convert("RGBA")
+                    if boundary_img.size != ortho_img.size:
+                        boundary_img = boundary_img.resize(ortho_img.size, Image.LANCZOS)
 
-                # Save combined image
-                final_img = ortho_img.convert("RGB")
-                ortofoto_path = os.path.join(session_dir, "ortofoto_cuzk.jpg")
-                final_img.save(ortofoto_path, "JPEG", quality=90)
-                ortofoto_url = f"/uploads/{session_id}/ortofoto_cuzk.jpg"
-                return ortofoto_path, ortofoto_url
+                    bnd_data = boundary_img.load()
+
+                    # Convert geo coords to pixel coords
+                    cx = int((lon - bbox[0]) / (bbox[2] - bbox[0]) * IMG_SIZE)
+                    cy = int((bbox[3] - lat) / (bbox[3] - bbox[1]) * IMG_SIZE)
+                    cx = max(0, min(cx, IMG_SIZE - 1))
+                    cy = max(0, min(cy, IMG_SIZE - 1))
+
+                    # Find seed point: spiral from center to find non-boundary pixel
+                    seed = None
+                    for r in range(0, 60):
+                        for dx in range(-r, r + 1):
+                            for dy in range(-r, r + 1):
+                                if abs(dx) != r and abs(dy) != r:
+                                    continue
+                                px, py = cx + dx, cy + dy
+                                if 0 <= px < IMG_SIZE and 0 <= py < IMG_SIZE:
+                                    if bnd_data[px, py][3] < 50:
+                                        seed = (px, py)
+                                        break
+                            if seed:
+                                break
+                        if seed:
+                            break
+
+                    if seed:
+                        # Create binary mask from boundaries
+                        mask = Image.new("L", ortho_img.size, 255)
+                        mask_data = mask.load()
+                        for x in range(IMG_SIZE):
+                            for y in range(IMG_SIZE):
+                                if bnd_data[x, y][3] > 30:
+                                    mask_data[x, y] = 0
+
+                        # Flood fill from seed
+                        ImageDraw.floodfill(mask, seed, 128, thresh=50)
+
+                        # Create cyan overlay from filled area
+                        overlay = Image.new("RGBA", ortho_img.size, (0, 0, 0, 0))
+                        ov_data = overlay.load()
+                        filled = 0
+                        for x in range(IMG_SIZE):
+                            for y in range(IMG_SIZE):
+                                if mask_data[x, y] == 128:
+                                    ov_data[x, y] = (0, 255, 255, 80)
+                                    filled += 1
+
+                        ortho_img = Image.alpha_composite(ortho_img, overlay)
+                        self.log(f"✓ Parcela zvýrazněna ({filled} px, seed={seed})")
+                    else:
+                        self.log("Seed point pro flood-fill nenalezen", "warn")
+
+                except Exception as e:
+                    self.log(f"Chyba zvýraznění parcel: {e}", "warn")
+
+            # Overlay colored boundaries + parcel numbers
+            try:
+                if color_resp.status_code == 200 and \
+                   color_resp.headers.get("content-type", "").startswith("image"):
+                    color_img = Image.open(io.BytesIO(color_resp.content)).convert("RGBA")
+                    if color_img.size != ortho_img.size:
+                        color_img = color_img.resize(ortho_img.size, Image.LANCZOS)
+                    ortho_img = Image.alpha_composite(ortho_img, color_img)
+                    self.log("✓ Hranice parcel a čísla překryty")
+            except Exception as e:
+                self.log(f"Chyba překrytí hranic: {e}", "warn")
+
+            # Save final image
+            final_img = ortho_img.convert("RGB")
+            ortofoto_path = os.path.join(session_dir, "ortofoto_cuzk.jpg")
+            final_img.save(ortofoto_path, "JPEG", quality=90)
+            ortofoto_url = f"/uploads/{session_id}/ortofoto_cuzk.jpg"
+            return ortofoto_path, ortofoto_url
 
         except Exception as e:
             self.log(f"Chyba stahování ortofota: {e}", "warn")
