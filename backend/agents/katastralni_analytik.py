@@ -69,14 +69,19 @@ LV_RISK_ANALYSIS_PROMPT = """Jsi expert na právní analýzu listu vlastnictví 
 
 Analyzuj následující data z Listu vlastnictví a identifikuj RIZIKA PRO BANKU.
 
-HLEDEJ TYTO RIZIKOVÉ FAKTORY:
-1. **Zástavní práva** – existující hypotéky, věřitelé, nesplacené dluhy, výše pohledávek
-2. **Věcná břemena** – služebnosti, užívací práva třetích osob (osobní i reálná)
+TOTO JE SEZNAM RIZIK A JEJICH PŘESNÁ KLASIFIKACE ZÁVAŽNOSTI:
+
+Tato 3 rizika MUSÍ BÝT VYSOKÉ ("severity": "vysoké"):
+1. **Zástavní práva** – existující hypotéky, věřitelé, nesplacené dluhy
+2. **Věcné břemeno užívání** – služebnosti užívání/bydlení třetích osob
 3. **Zákazy zcizení** – blokace prodeje/převodu nemovitosti
-4. **Exekuce/insolvence** – nařízení exekuce, insolvenční řízení
-5. **Plomby** – probíhající řízení v katastru
-6. **Spoluvlastnictví** – více vlastníků, komplikované podíly
-7. **BPEJ/zemědělský půdní fond** – pozemky v ZPF (omezení stavby)
+
+Všechna ostatní rizika MUSÍ BÝT STŘEDNÍ ("severity": "střední"):
+- Ostatní věcná břemena (vedení inženýrských sítí apod.)
+- Exekuce/insolvence (nařízení exekuce, insolvenční řízení)
+- Plomby (probíhající řízení v katastru)
+- Spoluvlastnictví (více vlastníků, komplikované podíly)
+- BPEJ/ZPF (pozemky v ZPF - omezení stavby)
 
 8. **PŘÍSTUP K NEMOVITOSTI** – zhodnoť, zda je zajištěn právně bezpečný přístup:
    Přístup je ZAJIŠTĚNÝ pokud platí ALESPOŇ JEDNO:
@@ -89,7 +94,7 @@ HLEDEJ TYTO RIZIKOVÉ FAKTORY:
    Pokud nelze přístup z dat LV jednoznačně posoudit → uveď jako poznámku
 
 Pro každé riziko uveď:
-- severity: "vysoké" / "střední" / "nízké"
+- severity: "vysoké" (Zástava, VB užívání, Zákaz zcizení) / "střední" (vše ostatní)
 - description: co přesně bylo nalezeno
 - recommendation: doporučení pro banku
 
@@ -98,12 +103,12 @@ ODPOVÍDEJ ČESKY, POUZE V JSON:
   "risks": [
     {"severity": "...", "category": "...", "description": "...", "recommendation": "..."}
   ],
-  "overall_risk_level": "vysoké" / "střední" / "nízké" / "žádné",
+  "overall_risk_level": "vysoké" / "střední",
   "access_assessment": {
     "status": "zajištěný" / "nezajištěný" / "nelze posoudit",
     "reason": "Popis důvodu"
   },
-  "summary": "Celkové shrnutí rizik pro banku"
+  "summary": "Celkové shrnutí rizik pro banku, vypiš stručně co se našlo"
 }
 """
 

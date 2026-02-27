@@ -36,11 +36,14 @@ Vyšší score = lepší stav.
    - 6-8: Drobné vady, kosmetické
    - 9-10: Bez viditelných vad
 
-KRITICKÉ OVERRIDY (okamžitý FAIL a Kat. 5):
+KRITICKÉ OVERRIDY (okamžitý FAIL a Kat. 5 – nevhodné pro online ocenění):
+- Nutnost OCHOTNÉ REKONSTRUKCE / PROBÍHAJÍCÍ REKONSTRUKCE (Dům není obyvatelný v aktuálním stavu a vyžaduje masivní zásahy)
 - Statické trhliny v nosných zdech
 - Propadlá nebo výrazně poškozená střecha
 - Konstrukční poškození (vyboulení, naklonění)
 - Viditelné narušení statiky
+
+Poznámka: Drobné dodělávky (např. chybějící jedna lišta) nevadí. Zásadní ale je patrný nutný rozsáhlý stavební zásah.
 
 KLASIFIKACE ZÁVAŽNOSTI VAD:
 - DROBNÁ: Kosmetické, neovlivňují funkčnost (oloupaná barva, drobné praskliny v omítce)

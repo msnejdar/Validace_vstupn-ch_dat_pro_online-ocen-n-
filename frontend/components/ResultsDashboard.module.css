@@ -161,11 +161,24 @@
     transition: all 0.2s;
     position: relative;
     box-shadow: var(--shadow-sm);
+    cursor: pointer;
 }
 
 .overviewCard:hover {
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-1px);
+}
+
+.ovExpanded {
+    grid-column: 1 / -1;
+    cursor: default;
+}
+
+.ovExpandedRaw {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    animation: fadeIn 0.2s ease;
 }
 
 .ov_success {

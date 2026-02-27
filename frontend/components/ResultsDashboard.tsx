@@ -22,7 +22,7 @@ const AGENT_META: Record<string, { icon: string; label: string; color: string }>
 };
 
 export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
-    const [showDetails, setShowDetails] = useState(false);
+    const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
     const semaphore = result.semaphore || 'UNKNOWN';
     const semaphoreColor = result.semaphore_color || 'gray';
@@ -516,9 +516,14 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                         const badge = getStatusBadge(agent.result?.status || 'idle');
                         const details = agent.result?.details || {};
                         const warnings = agent.result?.warnings || [];
+                        const isExpanded = expandedAgent === name;
 
                         return (
-                            <div key={name} className={`${styles.overviewCard} ${styles[`ov_${agent.result?.status}`]}`}>
+                            <div
+                                key={name}
+                                className={`${styles.overviewCard} ${styles[`ov_${agent.result?.status}`]} ${isExpanded ? styles.ovExpanded : ''}`}
+                                onClick={() => setExpandedAgent(isExpanded ? null : name)}
+                            >
                                 <div className={styles.ovHeader}>
                                     <span className={styles.ovIcon}>{meta.icon}</span>
                                     <span className={`${styles.ovBadge} ${styles[badge.class]}`}>{badge.text}</span>
@@ -559,6 +564,33 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
 
                                 {agent.elapsed_time != null && (
                                     <span className={styles.ovTime}>{agent.elapsed_time.toFixed(1)}s</span>
+                                )}
+
+                                {isExpanded && agent.result && (
+                                    <div className={styles.ovExpandedRaw} onClick={(e) => e.stopPropagation()}>
+                                        {agent.result.warnings?.length > 0 && (
+                                            <div className={styles.detailWarnings} style={{ marginBottom: 12 }}>
+                                                {agent.result.warnings.map((w: string, i: number) => (
+                                                    <div key={i} className={styles.warnLine}>⚠️ {w}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {agent.result.errors?.length > 0 && (
+                                            <div className={styles.detailErrors} style={{ marginBottom: 12 }}>
+                                                {agent.result.errors.map((e: string, i: number) => (
+                                                    <div key={i} className={styles.errLine}>❌ {e}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {agent.result.details && name !== 'Strateg' && (
+                                            <details className={styles.rawDetails} open>
+                                                <summary className={styles.rawToggle}>Technická data</summary>
+                                                <pre className={styles.rawJson}>
+                                                    {JSON.stringify(agent.result.details, null, 2)}
+                                                </pre>
+                                            </details>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         );
@@ -721,67 +753,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Developer Details Toggle ── */}
-                <button
-                    className={styles.detailsToggle}
-                    onClick={() => setShowDetails(!showDetails)}
-                >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: showDetails ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                        <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    {showDetails ? 'Skrýt podrobnosti' : 'Zobrazit podrobnosti'}
-                </button>
 
-                {showDetails && (
-                    <div className={styles.detailsSection}>
-                        {['Strazce', 'ForenzniAnalytik', 'Historik', 'Inspektor', 'GeoValidator', 'PorovnavacDokumentu', 'Strateg'].map(name => {
-                            const agent = agents[name];
-                            if (!agent?.result) return null;
-                            const meta = AGENT_META[name];
-
-                            return (
-                                <div key={name} className={styles.detailCard}>
-                                    <div className={styles.detailHeader}>
-                                        <div className={styles.detailLeft}>
-                                            <span>{meta.icon}</span>
-                                            <h4>{meta.label}</h4>
-                                        </div>
-                                        <span className={`${styles.detailStatus} status-${agent.result.status}`}>
-                                            {agent.result.status === 'success' ? '✓ PASS' : agent.result.status === 'fail' ? '✕ FAIL' : '⚠ WARN'}
-                                        </span>
-                                    </div>
-
-                                    <p className={styles.detailSummary}>{agent.result.summary}</p>
-
-                                    {agent.result.warnings.length > 0 && (
-                                        <div className={styles.detailWarnings}>
-                                            {agent.result.warnings.map((w, i) => (
-                                                <div key={i} className={styles.warnLine}>⚠️ {w}</div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {agent.result.errors.length > 0 && (
-                                        <div className={styles.detailErrors}>
-                                            {agent.result.errors.map((e, i) => (
-                                                <div key={i} className={styles.errLine}>❌ {e}</div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {agent.result.details && name !== 'Strateg' && (
-                                        <details className={styles.rawDetails}>
-                                            <summary className={styles.rawToggle}>Technická data</summary>
-                                            <pre className={styles.rawJson}>
-                                                {JSON.stringify(agent.result.details, null, 2)}
-                                            </pre>
-                                        </details>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
 
                 <div className={styles.actions}>
                     <button
