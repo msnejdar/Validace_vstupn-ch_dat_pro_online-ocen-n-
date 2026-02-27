@@ -13,76 +13,55 @@ from agents.base import BaseAgent, AgentResult, AgentStatus
 from config import GEMINI_API_KEY, GEMINI_MODEL, INSPECTOR_MAX_SCORE
 
 
-INSPECTOR_SYSTEM_PROMPT = """Jsi stavební expert na technickou inspekci rodinných domů z fotografií.
+INSPECTOR_SYSTEM_PROMPT = """Jsi specializovaný inspektor nemovitostí. Tvým úkolem je na základě vizuální analýzy fotografií rozhodnout, zda je rodinný dům (RD) způsobilý pro automatizované online ocenění. Tvým cílem je identifikovat rizika, která vyžadují zásah odhadce nebo statika.
 
-HODNOTÍŠ TŘI OBLASTI (každá 0-10 bodů, celkem max 30 bodů):
-Vyšší score = lepší stav.
+Základní princip:
+Hledáš dům, který je obyvatelný a funkční. Nevadí, že je vybavení zastaralé (retro), pokud je v dobrém technickém stavu. Jakákoliv probíhající práce nebo poškození konstrukce znamenají stopku.
 
-1. **VĚK PRVKŮ (0-10):**
-   - 0-2: Velmi staré prvky, viditelné opotřebení
-   - 3-5: Starší prvky, průměrný stav
-   - 6-8: Moderní prvky, dobrý stav
-   - 9-10: Nové/renovované prvky, výborný stav
+Rozhodovací kritéria (Kdy zvolit NE):
 
-2. **ÚDRŽBA (0-10):**
-   - 0-2: Zanedbáno, bez údržby
-   - 3-5: Průměrná údržba
-   - 6-8: Dobrá údržba
-   - 9-10: Výborná, pravidelná údržba
+1. Probíhající rekonstrukce:
+- Interiér: Chybějící podlahy, odhalené cihly, vytrhané rozvody, chybějící sanitární technika (WC, vany), lešení v interiéru.
+- Exteriér: Rozestavěné části, lešení, chybějící okna nebo dveře.
 
-3. **VADY (0-10):**
-   - 0-2: Závažné vady, ohrožení bezpečnosti
-   - 3-5: Střední vady, nutná oprava
-   - 6-8: Drobné vady, kosmetické
-   - 9-10: Bez viditelných vad
+2. Stav fasády:
+- Pokud chybí finální vrstva nebo je omítka opadaná na více než 15 % viditelné plochy.
+- Základní šedá jádrová omítka je akceptovatelná, pokud je celistvá a plní ochrannou funkci.
 
-KRITICKÉ OVERRIDY (okamžitý FAIL a Kat. 5 – nevhodné pro online ocenění):
-- Nutnost OCHOTNÉ REKONSTRUKCE / PROBÍHAJÍCÍ REKONSTRUKCE (Dům není obyvatelný v aktuálním stavu a vyžaduje masivní zásahy)
-- Statické trhliny v nosných zdech
-- Propadlá nebo výrazně poškozená střecha
-- Konstrukční poškození (vyboulení, naklonění)
-- Viditelné narušení statiky
+3. Statické vady (Kritické):
+- Jakékoliv trhliny a praskliny v nosném zdivu (zejména diagonální trhliny nad okny/dveřmi nebo praskliny v základech).
+- Vizuální náznak "sedání" objektu.
 
-Poznámka: Drobné dodělávky (např. chybějící jedna lišta) nevadí. Zásadní ale je patrný nutný rozsáhlý stavební zásah.
+4. Vlhkost a plísně:
+- Viditelné mapy od vlhkosti na stěnách či stropech.
+- Solné výkvěty (bílý povlak) na zdivu.
+- Ložiska plísní v rozích místností.
+- Odfouknutá a vlhkem degradovaná omítka u soklu budovy.
 
-KLASIFIKACE ZÁVAŽNOSTI VAD:
-- DROBNÁ: Kosmetické, neovlivňují funkčnost (oloupaná barva, drobné praskliny v omítce)
-- STŘEDNÍ: Vyžadují opravu v blízké době (netěsnící okna, opotřebovaná podlaha)
-- ZÁVAŽNÁ: Významně ovlivňují hodnotu nebo bezpečnost (vlhkost, plísně, poškozená elektroinstalace)
-- KRITICKÁ: Ohrožují bezpečnost nebo statiku (viz kritické overridy)
+5. Celková neobyvatelnost:
+- Zásadní poškození střechy, vybitá okna, stav "vybydlenosti".
 
-VRAŤ JSON:
+Rozhodovací kritéria (Kdy zvolit ANO):
+- Dům je starý, esteticky zastaralý (např. 80. léta), ale vše je kompletní a funkční.
+- Dům je čistý, suchý a bez prasklin.
+- Zahrada je neudržovaná, ale dům jako takový je stavebně v pořádku.
+
+Odpovídej maximálně ve dvou větách v důvodu.
+
+VRAŤ POUZE VALIDNÍ JSON V TOMTO FORMÁTU:
 {
-  "scoring": {
-    "element_age": {"score": 7, "notes": "Moderní okna, starší střecha"},
-    "maintenance": {"score": 8, "notes": "Dobrá údržba fasády i interiéru"},
-    "defects": {"score": 6, "notes": "Drobné praskliny v omítce"}
-  },
-  "total_score": 21,
-  "critical_override": false,
-  "critical_override_reason": null,
-  "defects_found": [
-    {
-      "description": "Prasklina v omítce nad oknem v 1.NP",
-      "severity": "DROBNÁ",
-      "location": "Fasáda, 1.NP",
-      "photo_id": "xxx"
-    }
-  ],
-  "overall_assessment": "Dům je v dobrém stavu s drobnými kosmetickými vadami."
+  "verdikt": "ANO" nebo "NE",
+  "duvod": "Stručný a věcný popis v češtině. Pokud je verdikt NE, konkrétně uveď, co na fotografii vidíš."
 }
-
-Odpověz POUZE validním JSON.
 """
 
-
 class InspektorAgent(BaseAgent):
-    """Agent 4: Inspektor - visual defect detection and scoring."""
+    """Agent 4: Inspektor - visual defect detection (ANO/NE pro online ocenění)."""
 
     def __init__(self):
         super().__init__(
             name="Inspektor",
-            description="Detekce vad a bodování technického stavu",
+            description="Rozhodnutí o způsobilosti k online ocenění",
             system_prompt=INSPECTOR_SYSTEM_PROMPT,
         )
         self.client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -119,7 +98,7 @@ class InspektorAgent(BaseAgent):
                 config=types.GenerateContentConfig(
                     system_instruction=self.system_prompt,
                     response_mime_type="application/json",
-                    max_output_tokens=3000,
+                    max_output_tokens=1000,
                 ),
             )
 
@@ -127,48 +106,26 @@ class InspektorAgent(BaseAgent):
             ai_result = json.loads(result_text)
             self.log("Inspection analysis received.", "info")
 
-            total_score = ai_result.get("total_score", 0)
-            critical_override = ai_result.get("critical_override", False)
-            defects = ai_result.get("defects_found", [])
-            scoring = ai_result.get("scoring", {})
+            verdikt = ai_result.get("verdikt", "NE")
+            duvod = ai_result.get("duvod", "Neznámý důvod.")
 
-            self.log(f"Score: {total_score}/{INSPECTOR_MAX_SCORE}, Critical: {critical_override}")
+            self.log(f"Verdikt: {verdikt}, Důvod: {duvod}")
 
             warnings = []
             errors = []
 
-            if critical_override:
-                reason = ai_result.get("critical_override_reason", "Kritický nález")
-                errors.append(f"KRITICKÝ OVERRIDE: {reason}")
-                self.log(f"CRITICAL OVERRIDE: {reason}", "error")
-
-            # Classify defects by severity
-            severe_count = sum(1 for d in defects if d.get("severity") in ("ZÁVAŽNÁ", "KRITICKÁ"))
-            if severe_count > 0:
-                warnings.append(f"Nalezeno {severe_count} závažných/kritických vad.")
-
-            if critical_override:
+            if verdikt.upper() == "NE":
                 status = AgentStatus.FAIL
-            elif total_score < 8:
-                status = AgentStatus.FAIL
-                errors.append(f"Velmi nízké hodnocení: {total_score}/{INSPECTOR_MAX_SCORE}")
-            elif total_score < 16:
-                status = AgentStatus.WARN
-                warnings.append(f"Nízké hodnocení: {total_score}/{INSPECTOR_MAX_SCORE}")
+                errors.append(f"Nezpůsobilé pro online ocenění: {duvod}")
             else:
                 status = AgentStatus.SUCCESS
 
             return AgentResult(
                 status=status,
-                score=total_score,
-                summary=ai_result.get("overall_assessment", f"Score: {total_score}/{INSPECTOR_MAX_SCORE}"),
+                summary=f"Způsobilé k online ocenění: {verdikt}",
                 details={
-                    "scoring": scoring,
-                    "total_score": total_score,
-                    "max_score": INSPECTOR_MAX_SCORE,
-                    "critical_override": critical_override,
-                    "critical_override_reason": ai_result.get("critical_override_reason"),
-                    "defects_found": defects,
+                    "verdikt": verdikt,
+                    "duvod": duvod
                 },
                 warnings=warnings,
                 errors=errors,

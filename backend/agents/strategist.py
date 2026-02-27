@@ -1,4 +1,4 @@
-"""Agent 5: Strateg – Aggregation Logic & Routing.
+"""Agent 5: Strategist – Aggregation Logic & Routing.
 
 Final decision-maker:
 - Tracks precedence: BR-G4 (completeness) has highest priority
@@ -12,7 +12,8 @@ from google.genai import types
 
 from agents.base import BaseAgent, AgentResult, AgentStatus
 from config import (
-    GEMINI_API_KEY, GEMINI_MODEL
+    GEMINI_API_KEY, GEMINI_MODEL,
+    DATA_MATRIX, get_age_range_key, get_score_range_key,
 )
 
 
@@ -38,12 +39,12 @@ Vrať POUZE text reportu, bez markdownu ani JSON.
 """
 
 
-class StrategAgent(BaseAgent):
-    """Agent 5: Strateg - final aggregation and routing decision."""
+class StrategistAgent(BaseAgent):
+    """Agent 5: Strategist - final aggregation and routing decision."""
 
     def __init__(self):
         super().__init__(
-            name="Strateg",
+            name="Strategist",
             description="Agregační logika a finální rozhodnutí (Semafor)",
             system_prompt=REPORT_PROMPT,
         )
@@ -52,10 +53,10 @@ class StrategAgent(BaseAgent):
     async def run(self, context: dict) -> AgentResult:
         agent_results = context.get("agent_results", {})
 
-        guardian = agent_results.get("Strazce")
-        forensic = agent_results.get("ForenzniAnalytik")
-        historian = agent_results.get("Historik")
-        inspector = agent_results.get("Inspektor")
+        guardian = agent_results.get("Guardian")
+        forensic = agent_results.get("Forensic")
+        historian = agent_results.get("Historian")
+        inspector = agent_results.get("Inspector")
         geovalidator = agent_results.get("GeoValidator")
 
         self.log("Agregace výsledků všech kontrol...")
@@ -68,7 +69,7 @@ class StrategAgent(BaseAgent):
         agent_summaries = {}
 
         for name, result in agent_results.items():
-            if result is None or name == "Strateg":
+            if result is None or name == "Strategist":
                 continue
             agent_summaries[name] = {
                 "status": result.status.value,
@@ -90,25 +91,48 @@ class StrategAgent(BaseAgent):
             else:
                 self.log(f"OK: {name}")
 
-        # Priority check: Strazce FAIL is blocking
+        # Priority check: Guardian FAIL is blocking
         guardian_fail = guardian and guardian.status == AgentStatus.FAIL
         if guardian_fail:
             self.log("BLOKUJÍCÍ: Neúplná fotodokumentace", "error")
 
+        # Matrix evaluation
+        matrix_result = None
+        matrix_match_type = None
         effective_age = None
+        ai_score = None
+        age_category = None
+
         if historian and historian.details.get("effective_age") is not None:
             effective_age = historian.details["effective_age"]
+        if inspector and inspector.score is not None:
+            ai_score = int(inspector.score)
+
+        if effective_age is not None and ai_score is not None:
+            age_key = get_age_range_key(effective_age)
+            score_key = get_score_range_key(ai_score)
+            if age_key in DATA_MATRIX and score_key in DATA_MATRIX[age_key]:
+                matrix_result = DATA_MATRIX[age_key][score_key]
+                matrix_match_type = matrix_result[1]
+                age_category = matrix_result[0]
+                self.log(f"Matice: věk={effective_age}, score={ai_score} → Kat. {matrix_result[0]} ({matrix_match_type})")
+
+                if matrix_match_type == "konflikt":
+                    total_warns += 1
+                    self.log("Matice: KONFLIKT – přidáno varování", "warn")
 
         # Determine final category
         final_category = None
-        if historian and historian.category is not None:
+        if age_category is not None:
+            final_category = age_category
+        elif historian and historian.category is not None:
             final_category = historian.category
 
-        # Critical override from Inspektor
-        if inspector and inspector.status == AgentStatus.FAIL:
+        # Critical override from Inspector
+        if inspector and inspector.details.get("critical_override"):
             final_category = 5
             has_fail = True
-            self.log(f"Kritický nález inspektora: {inspector.summary}", "error")
+            self.log("Kritický nález inspektora → Kat. 5", "error")
 
         # Determine semaphore
         if has_fail or guardian_fail or total_warns >= 3:
@@ -145,6 +169,12 @@ class StrategAgent(BaseAgent):
                 "total_warnings": total_warns,
                 "has_fail": has_fail,
                 "human_report": human_report,
+                "matrix_result": {
+                    "effective_age": effective_age,
+                    "ai_score": ai_score,
+                    "category": age_category,
+                    "match_type": matrix_match_type,
+                } if matrix_result else None,
                 "agent_summaries": agent_summaries,
             },
             warnings=all_warnings,
@@ -157,6 +187,7 @@ class StrategAgent(BaseAgent):
         semaphore: str,
         category: int | None,
         effective_age: int | None,
+        ai_score: int | None,
         total_warns: int,
         has_fail: bool,
     ) -> str:
@@ -171,6 +202,7 @@ class StrategAgent(BaseAgent):
                 "verdikt": semaphore,
                 "kategorie": category,
                 "efektivni_vek": effective_age,
+                "ai_score_stav": ai_score,
                 "pocet_varovani": total_warns,
                 "ma_fail": has_fail,
                 "vysledky_kontrol": {

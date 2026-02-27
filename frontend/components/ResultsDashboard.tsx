@@ -545,9 +545,9 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                         {agent.result?.category && <span>Kategorie: {agent.result.category}</span>}
                                     </div>
                                 )}
-                                {name === 'Inspektor' && agent.result?.score != null && (
+                                {name === 'Inspektor' && details.verdikt && (
                                     <div className={styles.ovDetails}>
-                                        <span>⭐ Skóre stavu: {agent.result.score}/100</span>
+                                        <span>🔍 Online ocenění: {details.verdikt}</span>
                                     </div>
                                 )}
                                 {name === 'GeoValidator' && details.visual_comparison && (
