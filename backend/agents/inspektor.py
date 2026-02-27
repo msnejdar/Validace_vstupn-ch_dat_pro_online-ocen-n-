@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 from agents.base import BaseAgent, AgentResult, AgentStatus
-from config import GEMINI_API_KEY, GEMINI_MODEL, INSPECTOR_MAX_SCORE
+from config import GEMINI_API_KEY, GEMINI_MODEL
 
 
 INSPECTOR_SYSTEM_PROMPT = """Jsi specializovaný inspektor nemovitostí. Tvým úkolem je na základě vizuální analýzy fotografií rozhodnout, zda je rodinný dům (RD) způsobilý pro automatizované online ocenění. Tvým cílem je identifikovat rizika, která vyžadují zásah odhadce nebo statika.

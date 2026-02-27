@@ -15,6 +15,7 @@ MAPY_CZ_API_KEY = os.getenv("MAPY_CZ_API_KEY", "")
 CUZK_API_KEY = os.getenv("CUZK_API_KEY", "")
 
 # Image Processing
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".bmp"}
 SUPPORTED_PDF_EXTENSIONS = {".pdf"}
