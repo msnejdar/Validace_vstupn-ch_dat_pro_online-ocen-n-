@@ -1,4 +1,4 @@
-"""Agent 7: CadastralAnalyst – LV Risk Analysis + Ortofoto Building Detection.
+"""Agent 7: KatastralniAnalytik – LV Risk Analysis + Ortofoto Building Detection.
 
 - Parses uploaded LV (List Vlastnictví) PDF
 - Identifies banking risks: liens, easements, alienation bans, executions
@@ -108,12 +108,12 @@ ODPOVÍDEJ ČESKY, POUZE V JSON:
 """
 
 
-class CadastralAnalystAgent(BaseAgent):
-    """Agent 7: CadastralAnalyst – LV + ortofoto analysis."""
+class KatastralniAnalytikAgent(BaseAgent):
+    """Agent 7: KatastralniAnalytik – LV + ortofoto analysis."""
 
     def __init__(self):
         super().__init__(
-            name="CadastralAnalyst",
+            name="KatastralniAnalytik",
             description="Analýza listu vlastnictví – rizika pro banku + ortofoto kontrola staveb",
             system_prompt=LV_RISK_ANALYSIS_PROMPT,
         )

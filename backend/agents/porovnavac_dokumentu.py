@@ -1,4 +1,4 @@
-"""Agent: DocumentComparator – porovnání dat z PDF formuláře s fotodokumentací.
+"""Agent: PorovnavacDokumentu – porovnání dat z PDF formuláře s fotodokumentací.
 
 Sends property data (from PDF or manual input) alongside uploaded photos to Gemini,
 which evaluates whether the photos match the declared property characteristics.
@@ -103,12 +103,12 @@ Vždy zahrň kontrolu podlahové plochy a počtu podlaží jako PRVNÍ dva body 
 """
 
 
-class DocumentComparatorAgent(BaseAgent):
+class PorovnavacDokumentuAgent(BaseAgent):
     """Compares declared property data (from PDF/manual input) with photo evidence."""
 
     def __init__(self):
         super().__init__(
-            name="DocumentComparator",
+            name="PorovnavacDokumentu",
             description="Porovnání údajů z formuláře s fotodokumentací",
             system_prompt=COMPARATOR_SYSTEM_PROMPT,
         )

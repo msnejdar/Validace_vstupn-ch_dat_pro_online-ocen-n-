@@ -1,4 +1,4 @@
-"""Agent 5: Strategist – Aggregation Logic & Routing.
+"""Agent 5: Strateg – Aggregation Logic & Routing.
 
 Final decision-maker:
 - Tracks precedence: BR-G4 (completeness) has highest priority
@@ -39,12 +39,12 @@ Vrať POUZE text reportu, bez markdownu ani JSON.
 """
 
 
-class StrategistAgent(BaseAgent):
-    """Agent 5: Strategist - final aggregation and routing decision."""
+class StrategAgent(BaseAgent):
+    """Agent 5: Strateg - final aggregation and routing decision."""
 
     def __init__(self):
         super().__init__(
-            name="Strategist",
+            name="Strateg",
             description="Agregační logika a finální rozhodnutí (Semafor)",
             system_prompt=REPORT_PROMPT,
         )
@@ -53,10 +53,10 @@ class StrategistAgent(BaseAgent):
     async def run(self, context: dict) -> AgentResult:
         agent_results = context.get("agent_results", {})
 
-        guardian = agent_results.get("Guardian")
-        forensic = agent_results.get("Forensic")
-        historian = agent_results.get("Historian")
-        inspector = agent_results.get("Inspector")
+        guardian = agent_results.get("Strazce")
+        forensic = agent_results.get("ForenzniAnalytik")
+        historian = agent_results.get("Historik")
+        inspector = agent_results.get("Inspektor")
         geovalidator = agent_results.get("GeoValidator")
 
         self.log("Agregace výsledků všech kontrol...")
@@ -69,7 +69,7 @@ class StrategistAgent(BaseAgent):
         agent_summaries = {}
 
         for name, result in agent_results.items():
-            if result is None or name == "Strategist":
+            if result is None or name == "Strateg":
                 continue
             agent_summaries[name] = {
                 "status": result.status.value,
@@ -91,7 +91,7 @@ class StrategistAgent(BaseAgent):
             else:
                 self.log(f"OK: {name}")
 
-        # Priority check: Guardian FAIL is blocking
+        # Priority check: Strazce FAIL is blocking
         guardian_fail = guardian and guardian.status == AgentStatus.FAIL
         if guardian_fail:
             self.log("BLOKUJÍCÍ: Neúplná fotodokumentace", "error")
@@ -128,7 +128,7 @@ class StrategistAgent(BaseAgent):
         elif historian and historian.category is not None:
             final_category = historian.category
 
-        # Critical override from Inspector
+        # Critical override from Inspektor
         if inspector and inspector.details.get("critical_override"):
             final_category = 5
             has_fail = True

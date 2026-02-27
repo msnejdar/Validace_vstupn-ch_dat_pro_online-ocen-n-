@@ -11,14 +11,14 @@ interface Props {
 }
 
 const AGENT_META: Record<string, { icon: string; label: string; color: string }> = {
-    Guardian: { icon: '🛡️', label: 'Fotodokumentace', color: '#3b82f6' },
-    Forensic: { icon: '🔬', label: 'Autenticita fotek', color: '#8b5cf6' },
-    Historian: { icon: '📜', label: 'Věk nemovitosti', color: '#06b6d4' },
-    Inspector: { icon: '🔍', label: 'Technický stav', color: '#f59e0b' },
+    Strazce: { icon: '🛡️', label: 'Fotodokumentace', color: '#3b82f6' },
+    ForenzniAnalytik: { icon: '🔬', label: 'Autenticita fotek', color: '#8b5cf6' },
+    Historik: { icon: '📜', label: 'Věk nemovitosti', color: '#06b6d4' },
+    Inspektor: { icon: '🔍', label: 'Technický stav', color: '#f59e0b' },
     GeoValidator: { icon: '📍', label: 'Ověření lokace', color: '#ec4899' },
-    DocumentComparator: { icon: '📄', label: 'PDF vs Fotky', color: '#f97316' },
-    CadastralAnalyst: { icon: '🏛️', label: 'Katastr & LV', color: '#7c3aed' },
-    Strategist: { icon: '🎯', label: 'Závěrečné hodnocení', color: '#10b981' },
+    PorovnavacDokumentu: { icon: '📄', label: 'PDF vs Fotky', color: '#f97316' },
+    KatastralniAnalytik: { icon: '🏛️', label: 'Katastr & LV', color: '#7c3aed' },
+    Strateg: { icon: '🎯', label: 'Závěrečné hodnocení', color: '#10b981' },
 };
 
 export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
@@ -28,7 +28,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
     const semaphoreColor = result.semaphore_color || 'gray';
     const finalCategory = result.final_category;
     const agents = result.agents || {};
-    const strategist = agents['Strategist'];
+    const strategist = agents['Strateg'];
     const humanReport = strategist?.result?.details?.human_report || strategist?.result?.summary || '';
 
     const semaphoreLabel = semaphoreColor === 'green'
@@ -183,9 +183,9 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Order 3: Photo Completeness (Guardian) ── */}
+                {/* ── Order 3: Photo Completeness (Strazce) ── */}
                 {(() => {
-                    const guardAgent = agents['Guardian'];
+                    const guardAgent = agents['Strazce'];
                     const guardDetails = guardAgent?.result?.details;
                     if (!guardDetails) return null;
 
@@ -248,9 +248,9 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Order 4: Property Condition (Inspector) ── */}
+                {/* ── Order 4: Property Condition (Inspektor) ── */}
                 {(() => {
-                    const inspAgent = agents['Inspector'];
+                    const inspAgent = agents['Inspektor'];
                     const inspDetails = inspAgent?.result?.details;
                     if (!inspDetails) return null;
 
@@ -314,9 +314,9 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
 
                 {/* ── Order 5: Document Comparator Results (MOVED UP) ── */}
 
-                {/* ── Order 6: CadastralAnalyst: Ortofoto + Risks (MOVED UP) ── */}
+                {/* ── Order 6: KatastralniAnalytik: Ortofoto + Risks (MOVED UP) ── */}
                 {(() => {
-                    const cadAgent = agents['CadastralAnalyst'];
+                    const cadAgent = agents['KatastralniAnalytik'];
                     const cadDetails = cadAgent?.result?.details;
                     if (!cadDetails || cadDetails.skipped) return null;
 
@@ -509,7 +509,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     Výsledky jednotlivých agentů
                 </h3>
                 <div className={styles.overviewGrid}>
-                    {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator', 'CadastralAnalyst'].map(name => {
+                    {['Strazce', 'ForenzniAnalytik', 'Historik', 'Inspektor', 'GeoValidator', 'PorovnavacDokumentu', 'KatastralniAnalytik'].map(name => {
                         const agent = agents[name];
                         if (!agent) return null;
                         const meta = AGENT_META[name];
@@ -529,18 +529,18 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                 </p>
 
                                 {/* Key details per agent */}
-                                {name === 'Guardian' && details.classifications && (
+                                {name === 'Strazce' && details.classifications && (
                                     <div className={styles.ovDetails}>
                                         <span>📸 {Object.keys(details.classifications).length} fotek klasifikováno</span>
                                     </div>
                                 )}
-                                {name === 'Historian' && details.effective_age != null && (
+                                {name === 'Historik' && details.effective_age != null && (
                                     <div className={styles.ovDetails}>
                                         <span>📅 Efektivní věk: {details.effective_age} let</span>
                                         {agent.result?.category && <span>Kategorie: {agent.result.category}</span>}
                                     </div>
                                 )}
-                                {name === 'Inspector' && agent.result?.score != null && (
+                                {name === 'Inspektor' && agent.result?.score != null && (
                                     <div className={styles.ovDetails}>
                                         <span>⭐ Skóre stavu: {agent.result.score}/100</span>
                                     </div>
@@ -550,7 +550,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                         <span>🗺️ Shoda panorama: {Math.round(details.visual_comparison.confidence * 100)}%</span>
                                     </div>
                                 )}
-                                {name === 'CadastralAnalyst' && details.risks && (
+                                {name === 'KatastralniAnalytik' && details.risks && (
                                     <div className={styles.ovDetails}>
                                         <span>📋 {details.risks.length} rizik(a) nalezeno</span>
                                         {details.ortofoto_url && <span>🛰️ Ortofoto staženo</span>}
@@ -565,7 +565,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     })}
                 </div>
                 {(() => {
-                    const docAgent = agents['DocumentComparator'];
+                    const docAgent = agents['PorovnavacDokumentu'];
                     const docDetails = docAgent?.result?.details;
                     if (!docDetails || docDetails.skipped) return null;
 
@@ -734,7 +734,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
 
                 {showDetails && (
                     <div className={styles.detailsSection}>
-                        {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator', 'Strategist'].map(name => {
+                        {['Strazce', 'ForenzniAnalytik', 'Historik', 'Inspektor', 'GeoValidator', 'PorovnavacDokumentu', 'Strateg'].map(name => {
                             const agent = agents[name];
                             if (!agent?.result) return null;
                             const meta = AGENT_META[name];
@@ -769,7 +769,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                                         </div>
                                     )}
 
-                                    {agent.result.details && name !== 'Strategist' && (
+                                    {agent.result.details && name !== 'Strateg' && (
                                         <details className={styles.rawDetails}>
                                             <summary className={styles.rawToggle}>Technická data</summary>
                                             <pre className={styles.rawJson}>

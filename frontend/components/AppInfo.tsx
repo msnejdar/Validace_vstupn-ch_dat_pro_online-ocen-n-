@@ -12,7 +12,7 @@ interface AgentInfo {
 
 const AGENTS: AgentInfo[] = [
     {
-        name: 'Guardian',
+        name: 'Strazce',
         icon: '🛡️',
         color: '#2870ED',
         description: 'Kontrola úplnosti fotografické dokumentace — ověřuje, zda sada fotek obsahuje exteriér ze všech stran (s číslem popisným), interiér všech místností, a vedlejší stavby (pokud existují).',
@@ -43,7 +43,7 @@ RIZIKA:
 - Vedlejší stavba viditelná ale nezdokumentovaná → WARN`,
     },
     {
-        name: 'Forensic',
+        name: 'ForenzniAnalytik',
         icon: '🔬',
         color: '#dc2626',
         description: 'Detekce manipulace fotografií — analýza EXIF dat (datum, GPS, zařízení), detekce AI generovaných obrázků, kontrola úprav a nekonzistencí.',
@@ -59,7 +59,7 @@ Tvým úkolem je analyzovat přiložené fotky a detekovat:
 Pro každou fotografii vrať skóre manipulace (0.0-1.0) a komentář.`,
     },
     {
-        name: 'Inspector',
+        name: 'Inspektor',
         icon: '🔍',
         color: '#059669',
         description: 'Vizuální inspektor — hodnotí technický stav nemovitosti z fotek: fasáda, střecha, okna, podlahy, vnitřní vybavení.',
@@ -77,7 +77,7 @@ HODNOŤ:
 Výstup: celkové hodnocení stavu (výborný/dobrý/uspokojivý/špatný) + detaily.`,
     },
     {
-        name: 'DocumentComparator',
+        name: 'PorovnavacDokumentu',
         icon: '📋',
         color: '#7c3aed',
         description: 'Porovnání dat z formuláře s fotodokumentací — kontrola počtu podlaží (NEJČASTĚJŠÍ CHYBA!), podkroví, plochy, střechy, stavu, podsklepení.',
@@ -126,7 +126,7 @@ VERDIKTY:
 - NEDOSTATEK_DAT: chybí GPS v EXIF`,
     },
     {
-        name: 'CadastralAnalyst',
+        name: 'KatastralniAnalytik',
         icon: '🏛️',
         color: '#0891b2',
         description: 'Katastrální analýza — stažení dat z ČÚZK (LV, parcely, vlastníci, zástavní práva), ortofoto s katastrální mapou, detekce nezakreslených staveb.',
@@ -150,7 +150,7 @@ LV ANALÝZA — RIZIKA PRO BANKU:
 - Spoluvlastnictví, BPEJ/zemědělský půdní fond`,
     },
     {
-        name: 'Strategist',
+        name: 'Strateg',
         icon: '🎯',
         color: '#4f46e5',
         description: 'Strategické vyhodnocení — agregace výsledků všech agentů, celkový verdikt (SCHVÁLENO / S VÝHRADAMI / ZAMÍTNUTO), identifikace blokujících rizik.',

@@ -8,14 +8,14 @@ from typing import Optional
 from fastapi import WebSocket
 
 from agents.base import AgentStatus, AgentResult
-from agents.guardian import GuardianAgent
-from agents.forensic import ForensicAgent
-from agents.historian import HistorianAgent
-from agents.inspector import InspectorAgent
-from agents.geovalidator import GeoValidatorAgent
-from agents.document_comparator import DocumentComparatorAgent
-from agents.cadastral_analyst import CadastralAnalystAgent
-from agents.strategist import StrategistAgent
+from agents.strazce import StrazceAgent
+from agents.forenzni_analytik import ForenzniAnalytikAgent
+from agents.historik import HistorikAgent
+from agents.inspektor import InspektorAgent
+from agents.geo_validator import GeoValidatorAgent
+from agents.porovnavac_dokumentu import PorovnavacDokumentuAgent
+from agents.katastralni_analytik import KatastralniAnalytikAgent
+from agents.strateg import StrategAgent
 
 
 class PipelineOrchestrator:
@@ -27,16 +27,16 @@ class PipelineOrchestrator:
 
         # Initialize agents
         self.agents = {
-            "Guardian": GuardianAgent(),
-            "Forensic": ForensicAgent(),
-            "Historian": HistorianAgent(),
-            "Inspector": InspectorAgent(),
+            "Strazce": StrazceAgent(),
+            "ForenzniAnalytik": ForenzniAnalytikAgent(),
+            "Historik": HistorikAgent(),
+            "Inspektor": InspektorAgent(),
             "GeoValidator": GeoValidatorAgent(),
-            "DocumentComparator": DocumentComparatorAgent(),
-            "CadastralAnalyst": CadastralAnalystAgent(),
-            "Strategist": StrategistAgent(),
+            "PorovnavacDokumentu": PorovnavacDokumentuAgent(),
+            "KatastralniAnalytik": KatastralniAnalytikAgent(),
+            "Strateg": StrategAgent(),
         }
-        self.agent_order = ["Guardian", "Forensic", "Historian", "Inspector", "GeoValidator", "DocumentComparator", "CadastralAnalyst", "Strategist"]
+        self.agent_order = ["Strazce", "ForenzniAnalytik", "Historik", "Inspektor", "GeoValidator", "PorovnavacDokumentu", "KatastralniAnalytik", "Strateg"]
         self.active_connections: list[WebSocket] = []
         self.is_running = False
         self.results = {}
@@ -90,7 +90,7 @@ class PipelineOrchestrator:
 
         # ── Sequential execution (Render free tier = 512MB RAM) ──
         # Agents run one at a time to minimize memory.
-        # GeoValidator depends on Guardian, Strategist depends on all.
+        # GeoValidator depends on Strazce, Strateg depends on all.
         import gc
 
         async def _run_agent(agent_name: str):
@@ -119,8 +119,8 @@ class PipelineOrchestrator:
             return result
 
         # Run agents one by one
-        run_order = ["Guardian", "Forensic", "Historian", "Inspector",
-                     "DocumentComparator", "CadastralAnalyst", "GeoValidator"]
+        run_order = ["Strazce", "ForenzniAnalytik", "Historik", "Inspektor",
+                     "PorovnavacDokumentu", "KatastralniAnalytik", "GeoValidator"]
 
         for agent_name in run_order:
             try:
@@ -136,39 +136,39 @@ class PipelineOrchestrator:
             # Free memory between agent runs
             gc.collect()
 
-        # Run Strategist with all previous results
-        strategist = self.agents["Strategist"]
+        # Run Strateg with all previous results
+        strategist = self.agents["Strateg"]
         strategist_context = {**context, "agent_results": agent_results}
 
-        if context.get("custom_prompts", {}).get("Strategist"):
-            strategist.system_prompt = context["custom_prompts"]["Strategist"]
+        if context.get("custom_prompts", {}).get("Strateg"):
+            strategist.system_prompt = context["custom_prompts"]["Strateg"]
 
-        await self._notify_status("Strategist", "processing")
-        await self._notify_log("Strategist", "Strategist aggregating all results...")
+        await self._notify_status("Strateg", "processing")
+        await self._notify_log("Strateg", "Strateg aggregating all results...")
 
         try:
             strategist_result = await strategist.execute(strategist_context)
         except Exception as e:
-            await self._notify_log("Strategist", f"Chyba Strategist: {e}", "error")
+            await self._notify_log("Strateg", f"Chyba Strateg: {e}", "error")
             strategist_result = AgentResult(
                 status=AgentStatus.FAIL,
-                summary=f"Strategist selhal: {e}",
+                summary=f"Strateg selhal: {e}",
                 errors=[str(e)],
                 details={"semaphore": "UNKNOWN", "semaphore_color": "gray"},
             )
 
-        agent_results["Strategist"] = strategist_result
+        agent_results["Strateg"] = strategist_result
 
         for log_entry in strategist.logs:
-            await self._notify_log("Strategist", log_entry.message, log_entry.level)
+            await self._notify_log("Strateg", log_entry.message, log_entry.level)
 
         await self._notify_status(
-            "Strategist",
+            "Strateg",
             strategist_result.status.value,
             {"elapsed_time": strategist.get_elapsed_time()},
         )
 
-        self.results["Strategist"] = strategist.to_dict()
+        self.results["Strateg"] = strategist.to_dict()
 
         total_time = round(time.time() - start_time, 2)
         self.is_running = False

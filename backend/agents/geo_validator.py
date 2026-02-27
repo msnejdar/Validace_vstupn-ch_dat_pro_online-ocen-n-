@@ -139,8 +139,8 @@ class GeoValidatorAgent(BaseAgent):
         property_lon = context.get("property_lon")
         session_id = context.get("session_id", "unknown")
 
-        # Guardian classifications (used to find the street-facing photo)
-        guardian_result = context.get("agent_results", {}).get("Guardian")
+        # Strazce classifications (used to find the street-facing photo)
+        guardian_result = context.get("agent_results", {}).get("Strazce")
         guardian_classifications = []
         if guardian_result and guardian_result.details:
             guardian_classifications = guardian_result.details.get("classifications", [])
@@ -476,11 +476,11 @@ class GeoValidatorAgent(BaseAgent):
         """Find the best street-facing exterior photo.
 
         Strategy (two-tiered for reliability):
-        1. Try Guardian's classifications (EXTERIER_PREDNI > EXTERIER_BOCNI > EXTERIER_ZADNI)
-        2. If Guardian didn't find one, use a dedicated Gemini call to pick the best exterior photo
+        1. Try Strazce's classifications (EXTERIER_PREDNI > EXTERIER_BOCNI > EXTERIER_ZADNI)
+        2. If Strazce didn't find one, use a dedicated Gemini call to pick the best exterior photo
            from ALL images — this guarantees we never accidentally pick an interior shot.
         """
-        # ── Tier 1: Guardian classifications ──
+        # ── Tier 1: Strazce classifications ──
         target_categories = ["EXTERIER_PREDNI", "EXTERIER_BOCNI", "EXTERIER_ZADNI"]
 
         for cat in target_categories:
@@ -490,12 +490,12 @@ class GeoValidatorAgent(BaseAgent):
                     pid = cl.get("photo_id")
                     for img in images:
                         if img.get("id") == pid:
-                            self.log(f"Guardian klasifikace: {pid} → {cat}")
+                            self.log(f"Strazce klasifikace: {pid} → {cat}")
                             return img.get("processed_path"), pid
 
         # ── Tier 2: Dedicated AI selection ──
-        # Guardian didn't identify a front photo or hasn't run — use AI to pick
-        self.log("Guardian nemá vhodnou klasifikaci, vybírám přední foto pomocí AI...", "thinking")
+        # Strazce didn't identify a front photo or hasn't run — use AI to pick
+        self.log("Strazce nemá vhodnou klasifikaci, vybírám přední foto pomocí AI...", "thinking")
         if not self.client or not images:
             return None, None
 

@@ -1,4 +1,4 @@
-"""Agent 1: Guardian – Completeness Check (BR-G4).
+"""Agent 1: Strazce – Completeness Check (BR-G4).
 
 Validates that the photo set meets the mandatory documentation requirements
 for RD (rodinný dům) property valuation:
@@ -88,12 +88,12 @@ Odpověz POUZE validním JSON.
 """
 
 
-class GuardianAgent(BaseAgent):
-    """Agent 1: Guardian - validates completeness of the photo set."""
+class StrazceAgent(BaseAgent):
+    """Agent 1: Strazce - validates completeness of the photo set."""
 
     def __init__(self):
         super().__init__(
-            name="Guardian",
+            name="Strazce",
             description="Ověření úplnosti fotografické dokumentace (BR-G4)",
             system_prompt=GUARDIAN_SYSTEM_PROMPT,
         )

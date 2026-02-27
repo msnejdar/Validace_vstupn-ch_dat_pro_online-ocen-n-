@@ -21,16 +21,16 @@ SUPPORTED_PDF_EXTENSIONS = {".pdf"}
 OUTPUT_FORMAT = "JPEG"
 JPEG_QUALITY = 85
 
-# Agent Thresholds – Guardian (BR-G4)
+# Agent Thresholds – Strazce (BR-G4)
 MIN_TOTAL_PHOTOS = 9
 MIN_EXTERIOR_PHOTOS = 2
 MIN_INTERIOR_PHOTOS = 3
 
-# Agent Thresholds – Forensic (BR-G5)
+# Agent Thresholds – ForenzniAnalytik (BR-G5)
 MANIPULATION_SCORE_THRESHOLD = 0.7
 CONFIDENCE_THRESHOLD = 0.8
 
-# Agent Thresholds – Inspector
+# Agent Thresholds – Inspektor
 INSPECTOR_MAX_SCORE = 30
 
 # Upload
@@ -40,7 +40,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Reference year for age calculations
 REFERENCE_YEAR = 2026
 
-# Data Matrix for Strategist
+# Data Matrix for Strateg
 # Rows: effective age ranges, Columns: AI score ranges
 # Values: (category, match_type)
 # match_type: "shoda" = match, "varovani" = warning, "konflikt" = conflict

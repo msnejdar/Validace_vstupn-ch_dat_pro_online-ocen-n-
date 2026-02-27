@@ -1,4 +1,4 @@
-"""Agent 4: Inspector – Defect Detection & Scoring.
+"""Agent 4: Inspektor – Defect Detection & Scoring.
 
 Visual analysis of technical condition:
 - Scoring 0-30 (Element age, Maintenance, Defects)
@@ -73,12 +73,12 @@ Odpověz POUZE validním JSON.
 """
 
 
-class InspectorAgent(BaseAgent):
-    """Agent 4: Inspector - visual defect detection and scoring."""
+class InspektorAgent(BaseAgent):
+    """Agent 4: Inspektor - visual defect detection and scoring."""
 
     def __init__(self):
         super().__init__(
-            name="Inspector",
+            name="Inspektor",
             description="Detekce vad a bodování technického stavu",
             system_prompt=INSPECTOR_SYSTEM_PROMPT,
         )

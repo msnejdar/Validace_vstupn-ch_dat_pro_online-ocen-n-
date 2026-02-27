@@ -1,4 +1,4 @@
-"""Agent 3: Historian – Age Calculation (BR-G6).
+"""Agent 3: Historik – Age Calculation (BR-G6).
 
 Calculates effective age and assigns primary category:
 - Formula: 2026 - year_of_reconstruction (priority), else 2026 - year_of_construction
@@ -25,12 +25,12 @@ HISTORIAN_SYSTEM_PROMPT = """Jsi expert na hodnocení stáří nemovitostí. Tv�
 """.format(ref_year=REFERENCE_YEAR)
 
 
-class HistorianAgent(BaseAgent):
-    """Agent 3: Historian - calculates effective age and category."""
+class HistorikAgent(BaseAgent):
+    """Agent 3: Historik - calculates effective age and category."""
 
     def __init__(self):
         super().__init__(
-            name="Historian",
+            name="Historik",
             description="Výpočet efektivního věku a kategorie (BR-G6)",
             system_prompt=HISTORIAN_SYSTEM_PROMPT,
         )

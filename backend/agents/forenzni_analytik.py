@@ -1,4 +1,4 @@
-"""Agent 2: Forensic – Manipulation Detection (BR-G5).
+"""Agent 2: ForenzniAnalytik – Manipulation Detection (BR-G5).
 
 Detects AI edits, retouching, and metadata inconsistencies:
 - Calculates manipulation_score and confidence
@@ -56,12 +56,12 @@ Odpověz POUZE validním JSON.
 """
 
 
-class ForensicAgent(BaseAgent):
-    """Agent 2: Forensic - detects manipulation and AI edits."""
+class ForenzniAnalytikAgent(BaseAgent):
+    """Agent 2: ForenzniAnalytik - detects manipulation and AI edits."""
 
     def __init__(self):
         super().__init__(
-            name="Forensic",
+            name="ForenzniAnalytik",
             description="Detekce AI úprav a manipulací (BR-G5)",
             system_prompt=FORENSIC_SYSTEM_PROMPT,
         )
@@ -115,7 +115,7 @@ class ForensicAgent(BaseAgent):
 
             result_text = response.text
             ai_result = json.loads(result_text)
-            self.log("Forensic analysis received.", "info")
+            self.log("ForenzniAnalytik analysis received.", "info")
 
             # Parse results
             overall = ai_result.get("overall", {})
@@ -142,7 +142,7 @@ class ForensicAgent(BaseAgent):
 
             status = AgentStatus.FAIL if errors else (AgentStatus.WARN if warnings else AgentStatus.SUCCESS)
 
-            self.log(f"Forensic result: {status.value} – flagged: {flagged}, max_score: {max_score:.2f}")
+            self.log(f"ForenzniAnalytik result: {status.value} – flagged: {flagged}, max_score: {max_score:.2f}")
 
             return AgentResult(
                 status=status,
@@ -157,7 +157,7 @@ class ForensicAgent(BaseAgent):
             )
 
         except Exception as e:
-            self.log(f"Forensic analysis error: {str(e)}", "error")
+            self.log(f"ForenzniAnalytik analysis error: {str(e)}", "error")
             return AgentResult(
                 status=AgentStatus.WARN,
                 summary=f"Chyba forenzní analýzy: {str(e)}",
