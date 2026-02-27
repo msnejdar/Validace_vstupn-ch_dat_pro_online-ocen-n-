@@ -61,10 +61,14 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                             <p className={styles.verdictSubtitle}>{semaphoreLabel}</p>
                         </div>
                     </div>
-                    {finalCategory && (
+                    {agents?.['Inspektor']?.result?.details?.verdikt && (
                         <div className={styles.categoryChip}>
-                            <span className={styles.categoryLabel}>Kategorie</span>
-                            <span className={styles.categoryValue}>{finalCategory}</span>
+                            <span className={styles.categoryLabel}>Online ocenění</span>
+                            <span className={styles.categoryValue} style={{
+                                color: agents['Inspektor'].result!.details.verdikt === 'ANO' ? '#10b981' : '#ef4444'
+                            }}>
+                                {agents['Inspektor'].result!.details.verdikt}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -74,7 +78,106 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     <span>Doba analýzy: {result.total_time?.toFixed(1)}s</span>
                     <span>•</span>
                     <span>Pipeline: {result.pipeline_id}</span>
+                    {finalCategory && (
+                        <>
+                            <span>•</span>
+                            <span>Kategorie: {finalCategory}</span>
+                        </>
+                    )}
                 </div>
+
+                {/* ── Order 2: Photo Completeness (Strazce) ── */}
+                {(() => {
+                    const guardAgent = agents['Strazce'];
+                    const guardDetails = guardAgent?.result?.details;
+                    if (!guardDetails) return null;
+
+                    const missing = guardDetails.missing_views || [];
+                    const statusColor = missing.length === 0 ? '#10b981' : (guardAgent.result?.status === 'fail' ? '#ef4444' : '#f59e0b');
+                    const statusIcon = missing.length === 0 ? '✓' : (guardAgent.result?.status === 'fail' ? '✗' : '⚠');
+                    const statusText = missing.length === 0 ? 'Kompletní fotodokumentace' : 'Neúplná fotodokumentace';
+
+                    return (
+                        <div className={styles.comparisonCard}>
+                            <div className={styles.comparisonHeader}>
+                                <h3 className={styles.comparisonTitle}>
+                                    🛡️ Kontrola fotodokumentace
+                                </h3>
+                                <span
+                                    className={styles.comparisonVerdictBadge}
+                                    style={{ background: `${statusColor}22`, color: statusColor, borderColor: `${statusColor}44` }}
+                                >
+                                    {statusIcon} {statusText}
+                                </span>
+                            </div>
+                            <div className={styles.comparisonText}>
+                                <p>{guardAgent?.result?.summary || 'Fotografie byly úspěšně zkontrolovány.'}</p>
+                            </div>
+                            {missing.length > 0 && (
+                                <div className={styles.featureCol} style={{ marginTop: '12px' }}>
+                                    <span className={styles.featureLabel}>Chybějící pohledy</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {missing.map((m: string, i: number) => (
+                                            <span key={i} className={styles.featureTag + ' ' + styles.featureDiff}>{m}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* ── Order 3: Technical State (Inspektor) ── */}
+                {(() => {
+                    const inspAgent = agents['Inspektor'];
+                    const inspDetails = inspAgent?.result?.details;
+                    if (!inspDetails) return null;
+
+                    const verdikt = inspDetails.verdikt;
+                    const statusColor = verdikt === 'ANO' ? '#10b981' : '#ef4444';
+                    const statusIcon = verdikt === 'ANO' ? '✓' : '✗';
+
+                    return (
+                        <div className={styles.comparisonCard}>
+                            <div className={styles.comparisonHeader}>
+                                <h3 className={styles.comparisonTitle}>
+                                    🔍 Technický stav (Online Ocenění)
+                                </h3>
+                                <span
+                                    className={styles.comparisonVerdictBadge}
+                                    style={{ background: `${statusColor}22`, color: statusColor, borderColor: `${statusColor}44` }}
+                                >
+                                    {statusIcon} {verdikt === 'ANO' ? 'Způsobilé' : 'Nezpůsobilé'}
+                                </span>
+                            </div>
+                            <div className={styles.comparisonText}>
+                                <p><strong>Důvod:</strong> {inspDetails.duvod}</p>
+                            </div>
+
+                            {inspAgent.result?.warnings && inspAgent.result.warnings.length > 0 && (
+                                <div className={styles.featureCol} style={{ marginTop: '12px' }}>
+                                    <span className={styles.featureLabel}>Upozornění AI</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {inspAgent.result.warnings.map((w: string, i: number) => (
+                                            <span key={i} className={styles.warnLine}>⚠️ {w}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {inspDetails.defects && inspDetails.defects.length > 0 && (
+                                <div className={styles.featureCol} style={{ marginTop: '16px' }}>
+                                    <span className={styles.featureLabel}>Zjištěné vady a nedostatky</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {inspDetails.defects.map((f: any, i: number) => (
+                                            <span key={i} className={styles.featureTag + ' ' + styles.featureDiff}>{f.description}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* ── Order 1: Verdict Header (KEPT AS IS) ── */}
                 {/* ── Order 2: Visual Comparison (GeoValidator) ── */}
@@ -183,134 +286,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Order 3: Photo Completeness (Strazce) ── */}
-                {(() => {
-                    const guardAgent = agents['Strazce'];
-                    const guardDetails = guardAgent?.result?.details;
-                    if (!guardDetails) return null;
 
-                    const missing = guardDetails.missing_views || [];
-                    const classData = guardDetails.classifications || [];
-                    const statusColor = missing.length === 0 ? '#10b981' : (guardAgent.result?.status === 'fail' ? '#ef4444' : '#f59e0b');
-                    const statusIcon = missing.length === 0 ? '✓' : (guardAgent.result?.status === 'fail' ? '✗' : '⚠');
-                    const statusText = missing.length === 0 ? 'Kompletní' : 'Neúplné';
-
-                    return (
-                        <div className={styles.comparisonCard}>
-                            <div className={styles.comparisonHeader}>
-                                <h3 className={styles.comparisonTitle}>
-                                    📸 Kompletnost fotodokumentace
-                                </h3>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                        {Object.keys(classData).length} fotek klasifikováno
-                                    </span>
-                                    <span
-                                        className={styles.comparisonVerdictBadge}
-                                        style={{ background: `${statusColor}22`, color: statusColor, borderColor: `${statusColor}44` }}
-                                    >
-                                        {statusIcon} {statusText}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className={styles.comparisonText} style={{ marginBottom: '16px' }}>
-                                {guardAgent.result?.summary}
-                            </div>
-
-                            {missing.length > 0 && (
-                                <div style={{
-                                    padding: '12px 16px',
-                                    background: 'var(--accent-orange-light)',
-                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                    borderRadius: '8px',
-                                    marginBottom: '16px'
-                                }}>
-                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-orange)', marginBottom: '4px' }}>
-                                        Chybějící fotodokumentace:
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {missing.map((m: string, i: number) => (
-                                            <span key={i} style={{
-                                                fontSize: '12px',
-                                                padding: '4px 10px',
-                                                background: '#fff',
-                                                border: '1px solid rgba(245, 158, 11, 0.5)',
-                                                borderRadius: '100px',
-                                                color: 'var(--accent-orange)',
-                                                fontWeight: 500
-                                            }}>{m}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
-
-                {/* ── Order 4: Property Condition (Inspektor) ── */}
-                {(() => {
-                    const inspAgent = agents['Inspektor'];
-                    const inspDetails = inspAgent?.result?.details;
-                    if (!inspDetails) return null;
-
-                    const score = inspAgent.result?.score || 0;
-                    const scoreColor = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
-
-                    return (
-                        <div className={styles.comparisonCard}>
-                            <div className={styles.comparisonHeader} style={{ marginBottom: '8px' }}>
-                                <h3 className={styles.comparisonTitle}>
-                                    🔍 Stav nemovitosti a vhodnost pro online ocenění
-                                </h3>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                        Skóre stavu:
-                                    </span>
-                                    <span style={{
-                                        fontWeight: 800,
-                                        fontSize: '20px',
-                                        color: scoreColor,
-                                        background: `${scoreColor}15`,
-                                        padding: '4px 12px',
-                                        borderRadius: '8px'
-                                    }}>
-                                        {score}/100
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className={styles.comparisonText} style={{ marginBottom: '16px' }}>
-                                <strong>Vizuální hodnocení:</strong> {inspAgent.result?.summary}
-                            </div>
-
-                            {inspDetails.overall_condition && (
-                                <div style={{
-                                    padding: '16px',
-                                    background: 'var(--bg-secondary)',
-                                    borderRadius: '8px',
-                                    borderLeft: '4px solid var(--accent-blue)',
-                                    marginBottom: '16px'
-                                }}>
-                                    <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                                        {inspDetails.overall_condition}
-                                    </p>
-                                </div>
-                            )}
-
-                            {inspDetails.defects && inspDetails.defects.length > 0 && (
-                                <div className={styles.featureCol}>
-                                    <span className={styles.featureLabel}>Zjištěné vady a nedostatky</span>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                        {inspDetails.defects.map((f: string, i: number) => (
-                                            <span key={i} className={styles.featureTag + ' ' + styles.featureDiff}>{f}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
 
                 {/* ── Order 5: Document Comparator Results (MOVED UP) ── */}
 
@@ -509,7 +485,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     Výsledky jednotlivých agentů
                 </h3>
                 <div className={styles.overviewGrid}>
-                    {['Strazce', 'ForenzniAnalytik', 'Historik', 'Inspektor', 'GeoValidator', 'PorovnavacDokumentu', 'KatastralniAnalytik'].map(name => {
+                    {['Strazce', 'Inspektor', 'ForenzniAnalytik', 'Historik', 'GeoValidator', 'PorovnavacDokumentu', 'KatastralniAnalytik'].map(name => {
                         const agent = agents[name];
                         if (!agent) return null;
                         const meta = AGENT_META[name];
