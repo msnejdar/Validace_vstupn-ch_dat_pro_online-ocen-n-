@@ -7,7 +7,8 @@ venv/
 .venv/
 
 # Uploads
-uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # Node / Next.js
 node_modules/

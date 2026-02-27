@@ -297,6 +297,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 
 # Serve uploaded/processed images (panorama, etc.)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
