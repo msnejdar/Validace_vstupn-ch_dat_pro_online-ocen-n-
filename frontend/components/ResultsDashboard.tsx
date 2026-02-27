@@ -76,98 +76,8 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     <span>Pipeline: {result.pipeline_id}</span>
                 </div>
 
-                {/* ── Human Report ── */}
-                <div className={styles.reportCard}>
-                    <div className={styles.reportHeader}>
-                        <h3 className={styles.reportTitle}>Závěrečná zpráva</h3>
-                    </div>
-                    <div className={styles.reportBody}>
-                        {humanReport.split('\n').map((line: string, i: number) => {
-                            if (!line.trim()) return <br key={i} />;
-                            // Bold lines that look like section headers
-                            const isHeader = /^\d+\.|^\*\*|^Shrnutí|^Fotodokumentace|^Stav|^Věk|^Ověření|^Doporučení/i.test(line.trim());
-                            return (
-                                <p key={i} className={isHeader ? styles.reportSection : styles.reportText}>
-                                    {line.replace(/\*\*/g, '')}
-                                </p>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* ── Agent Results Cards ── */}
-                <div className={styles.overviewGrid}>
-                    {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator', 'CadastralAnalyst'].map(name => {
-                        const agent = agents[name];
-                        if (!agent) return null;
-                        const meta = AGENT_META[name];
-                        const badge = getStatusBadge(agent.result?.status || 'idle');
-                        const details = agent.result?.details || {};
-                        const warnings = agent.result?.warnings || [];
-
-                        return (
-                            <div key={name} className={`${styles.overviewCard} ${styles[`ov_${agent.result?.status}`]}`}>
-                                <div className={styles.ovHeader}>
-                                    <span className={styles.ovIcon}>{meta.icon}</span>
-                                    <span className={`${styles.ovBadge} ${styles[badge.class]}`}>{badge.text}</span>
-                                </div>
-                                <h4 className={styles.ovTitle}>{meta.label}</h4>
-                                <p className={styles.ovSummary}>
-                                    {agent.result?.summary || '–'}
-                                </p>
-
-                                {/* Key details per agent */}
-                                {name === 'Guardian' && details.classifications && (
-                                    <div className={styles.ovDetails}>
-                                        <span>📸 {Object.keys(details.classifications).length} fotek klasifikováno</span>
-                                        {details.missing_views?.length > 0 && (
-                                            <span style={{ color: 'var(--accent-orange)' }}>Chybí: {details.missing_views.join(', ')}</span>
-                                        )}
-                                    </div>
-                                )}
-                                {name === 'Historian' && details.effective_age != null && (
-                                    <div className={styles.ovDetails}>
-                                        <span>📅 Efektivní věk: {details.effective_age} let</span>
-                                        {agent.result?.category && <span>Kategorie: {agent.result.category}</span>}
-                                    </div>
-                                )}
-                                {name === 'Inspector' && agent.result?.score != null && (
-                                    <div className={styles.ovDetails}>
-                                        <span>⭐ Skóre stavu: {agent.result.score}/100</span>
-                                    </div>
-                                )}
-                                {name === 'GeoValidator' && details.visual_comparison && (
-                                    <div className={styles.ovDetails}>
-                                        <span>🗺️ Shoda panorama: {Math.round(details.visual_comparison.confidence * 100)}%</span>
-                                    </div>
-                                )}
-                                {name === 'CadastralAnalyst' && details.risks && (
-                                    <div className={styles.ovDetails}>
-                                        <span>📋 {details.risks.length} rizik(a) nalezeno</span>
-                                        {details.ortofoto_url && <span>🛰️ Ortofoto staženo</span>}
-                                    </div>
-                                )}
-
-                                {warnings.length > 0 && (
-                                    <div className={styles.ovWarnings}>
-                                        {warnings.slice(0, 2).map((w: string, i: number) => (
-                                            <div key={i} className={styles.ovWarnLine}>⚠️ {w}</div>
-                                        ))}
-                                        {warnings.length > 2 && (
-                                            <div className={styles.ovWarnLine}>+{warnings.length - 2} dalších varování</div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {agent.elapsed_time != null && (
-                                    <span className={styles.ovTime}>{agent.elapsed_time.toFixed(1)}s</span>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* ── Visual Comparison (GeoValidator) ── */}
+                {/* ── Order 1: Verdict Header (KEPT AS IS) ── */}
+                {/* ── Order 2: Visual Comparison (GeoValidator) ── */}
                 {(() => {
                     const geoAgent = agents['GeoValidator'];
                     const geoDetails = geoAgent?.result?.details;
@@ -273,7 +183,138 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── CadastralAnalyst: Ortofoto + Risks ── */}
+                {/* ── Order 3: Photo Completeness (Guardian) ── */}
+                {(() => {
+                    const guardAgent = agents['Guardian'];
+                    const guardDetails = guardAgent?.result?.details;
+                    if (!guardDetails) return null;
+
+                    const missing = guardDetails.missing_views || [];
+                    const classData = guardDetails.classifications || [];
+                    const statusColor = missing.length === 0 ? '#10b981' : (guardAgent.result?.status === 'fail' ? '#ef4444' : '#f59e0b');
+                    const statusIcon = missing.length === 0 ? '✓' : (guardAgent.result?.status === 'fail' ? '✗' : '⚠');
+                    const statusText = missing.length === 0 ? 'Kompletní' : 'Neúplné';
+
+                    return (
+                        <div className={styles.comparisonCard}>
+                            <div className={styles.comparisonHeader}>
+                                <h3 className={styles.comparisonTitle}>
+                                    📸 Kompletnost fotodokumentace
+                                </h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                        {Object.keys(classData).length} fotek klasifikováno
+                                    </span>
+                                    <span
+                                        className={styles.comparisonVerdictBadge}
+                                        style={{ background: `${statusColor}22`, color: statusColor, borderColor: `${statusColor}44` }}
+                                    >
+                                        {statusIcon} {statusText}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className={styles.comparisonText} style={{ marginBottom: '16px' }}>
+                                {guardAgent.result?.summary}
+                            </div>
+
+                            {missing.length > 0 && (
+                                <div style={{
+                                    padding: '12px 16px',
+                                    background: 'var(--accent-orange-light)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '8px',
+                                    marginBottom: '16px'
+                                }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-orange)', marginBottom: '4px' }}>
+                                        Chybějící fotodokumentace:
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {missing.map((m: string, i: number) => (
+                                            <span key={i} style={{
+                                                fontSize: '12px',
+                                                padding: '4px 10px',
+                                                background: '#fff',
+                                                border: '1px solid rgba(245, 158, 11, 0.5)',
+                                                borderRadius: '100px',
+                                                color: 'var(--accent-orange)',
+                                                fontWeight: 500
+                                            }}>{m}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* ── Order 4: Property Condition (Inspector) ── */}
+                {(() => {
+                    const inspAgent = agents['Inspector'];
+                    const inspDetails = inspAgent?.result?.details;
+                    if (!inspDetails) return null;
+
+                    const score = inspAgent.result?.score || 0;
+                    const scoreColor = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+
+                    return (
+                        <div className={styles.comparisonCard}>
+                            <div className={styles.comparisonHeader} style={{ marginBottom: '8px' }}>
+                                <h3 className={styles.comparisonTitle}>
+                                    🔍 Stav nemovitosti a vhodnost pro online ocenění
+                                </h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                        Skóre stavu:
+                                    </span>
+                                    <span style={{
+                                        fontWeight: 800,
+                                        fontSize: '20px',
+                                        color: scoreColor,
+                                        background: `${scoreColor}15`,
+                                        padding: '4px 12px',
+                                        borderRadius: '8px'
+                                    }}>
+                                        {score}/100
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className={styles.comparisonText} style={{ marginBottom: '16px' }}>
+                                <strong>Vizuální hodnocení:</strong> {inspAgent.result?.summary}
+                            </div>
+
+                            {inspDetails.overall_condition && (
+                                <div style={{
+                                    padding: '16px',
+                                    background: 'var(--bg-secondary)',
+                                    borderRadius: '8px',
+                                    borderLeft: '4px solid var(--accent-blue)',
+                                    marginBottom: '16px'
+                                }}>
+                                    <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                                        {inspDetails.overall_condition}
+                                    </p>
+                                </div>
+                            )}
+
+                            {inspDetails.defects && inspDetails.defects.length > 0 && (
+                                <div className={styles.featureCol}>
+                                    <span className={styles.featureLabel}>Zjištěné vady a nedostatky</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {inspDetails.defects.map((f: string, i: number) => (
+                                            <span key={i} className={styles.featureTag + ' ' + styles.featureDiff}>{f}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* ── Order 5: Document Comparator Results (MOVED UP) ── */}
+
+                {/* ── Order 6: CadastralAnalyst: Ortofoto + Risks (MOVED UP) ── */}
                 {(() => {
                     const cadAgent = agents['CadastralAnalyst'];
                     const cadDetails = cadAgent?.result?.details;
@@ -444,7 +485,85 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Document Comparator Results ── */}
+                {/* ── Order 7: Summary Report (MOVED DOWN) ── */}
+                <div className={styles.reportCard}>
+                    <div className={styles.reportHeader}>
+                        <h3 className={styles.reportTitle}>Souhrnná zpráva</h3>
+                    </div>
+                    <div className={styles.reportBody}>
+                        {humanReport.split('\n').map((line: string, i: number) => {
+                            if (!line.trim()) return <br key={i} />;
+                            // Bold lines that look like section headers
+                            const isHeader = /^\d+\.|^\*\*|^Shrnutí|^Fotodokumentace|^Stav|^Věk|^Ověření|^Doporučení/i.test(line.trim());
+                            return (
+                                <p key={i} className={isHeader ? styles.reportSection : styles.reportText}>
+                                    {line.replace(/\*\*/g, '')}
+                                </p>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ── Order 8: Agent Results Grid (MOVED DOWN) ── */}
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '32px 0 16px', color: 'var(--text-primary)' }}>
+                    Výsledky jednotlivých agentů
+                </h3>
+                <div className={styles.overviewGrid}>
+                    {['Guardian', 'Forensic', 'Historian', 'Inspector', 'GeoValidator', 'DocumentComparator', 'CadastralAnalyst'].map(name => {
+                        const agent = agents[name];
+                        if (!agent) return null;
+                        const meta = AGENT_META[name];
+                        const badge = getStatusBadge(agent.result?.status || 'idle');
+                        const details = agent.result?.details || {};
+                        const warnings = agent.result?.warnings || [];
+
+                        return (
+                            <div key={name} className={`${styles.overviewCard} ${styles[`ov_${agent.result?.status}`]}`}>
+                                <div className={styles.ovHeader}>
+                                    <span className={styles.ovIcon}>{meta.icon}</span>
+                                    <span className={`${styles.ovBadge} ${styles[badge.class]}`}>{badge.text}</span>
+                                </div>
+                                <h4 className={styles.ovTitle}>{meta.label}</h4>
+                                <p className={styles.ovSummary}>
+                                    {agent.result?.summary || '–'}
+                                </p>
+
+                                {/* Key details per agent */}
+                                {name === 'Guardian' && details.classifications && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📸 {Object.keys(details.classifications).length} fotek klasifikováno</span>
+                                    </div>
+                                )}
+                                {name === 'Historian' && details.effective_age != null && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📅 Efektivní věk: {details.effective_age} let</span>
+                                        {agent.result?.category && <span>Kategorie: {agent.result.category}</span>}
+                                    </div>
+                                )}
+                                {name === 'Inspector' && agent.result?.score != null && (
+                                    <div className={styles.ovDetails}>
+                                        <span>⭐ Skóre stavu: {agent.result.score}/100</span>
+                                    </div>
+                                )}
+                                {name === 'GeoValidator' && details.visual_comparison && (
+                                    <div className={styles.ovDetails}>
+                                        <span>🗺️ Shoda panorama: {Math.round(details.visual_comparison.confidence * 100)}%</span>
+                                    </div>
+                                )}
+                                {name === 'CadastralAnalyst' && details.risks && (
+                                    <div className={styles.ovDetails}>
+                                        <span>📋 {details.risks.length} rizik(a) nalezeno</span>
+                                        {details.ortofoto_url && <span>🛰️ Ortofoto staženo</span>}
+                                    </div>
+                                )}
+
+                                {agent.elapsed_time != null && (
+                                    <span className={styles.ovTime}>{agent.elapsed_time.toFixed(1)}s</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
                 {(() => {
                     const docAgent = agents['DocumentComparator'];
                     const docDetails = docAgent?.result?.details;
@@ -602,7 +721,7 @@ export default function ResultsDashboard({ result, onReset, onEdit }: Props) {
                     );
                 })()}
 
-                {/* ── Detailed View Toggle ── */}
+                {/* ── Developer Details Toggle ── */}
                 <button
                     className={styles.detailsToggle}
                     onClick={() => setShowDetails(!showDetails)}
